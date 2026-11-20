@@ -16,6 +16,8 @@ servers:
 paths:
   /api/offering:
     get:
+      tags:
+        - Waitlist
       summary: Retrieve Course Offering Snapshot
       description: Returns real-time capacity, enrolled learner IDs, available seats, and the FIFO waitlist.
       operationId: getOfferingSnapshot
@@ -29,6 +31,8 @@ paths:
 
   /api/learners:
     get:
+      tags:
+        - Waitlist
       summary: List Registered Learners
       description: Returns all learners registered in the in-memory repository with their completed prerequisite courses.
       operationId: getAllLearners
@@ -42,6 +46,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/Learner'
     post:
+      tags:
+        - Waitlist
       summary: Register a Learner
       description: Adds or updates a learner profile and their completed prerequisites.
       operationId: registerLearner
@@ -67,6 +73,8 @@ paths:
 
   /api/enroll:
     post:
+      tags:
+        - Waitlist
       summary: Enroll a Learner
       description: |
         Attempts to enroll a learner in the course offering:
@@ -98,6 +106,8 @@ paths:
 
   /api/drop:
     post:
+      tags:
+        - Waitlist
       summary: Drop a Learner
       description: |
         Removes a learner from the course offering or waitlist:
@@ -127,6 +137,8 @@ paths:
 
   /api/reset:
     post:
+      tags:
+        - Waitlist
       summary: Reset Offering State
       description: Resets the course offering back to default baseline (capacity 2, prerequisite CS101, empty rosters) for testing.
       operationId: resetOffering
