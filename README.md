@@ -8,35 +8,35 @@ Built with Python 3 standard library (zero external dependencies).
 
 ## 1. Quick Start & Setup
 
-### Prerequisites
-- Python 3.8+ (tested on Python 3.9.6)
-- No `pip install` or external packages required.
+### Java Fullstack (Spring Boot 3 + Interactive UI + JUnit 5)
+- **Prerequisites**: JDK 17+
+- **Run Tests** (22 JUnit 5 tests covering capacity, duplicates, FIFO promotion, prerequisites, drops, and high concurrency):
+  ```bash
+  cd /Users/veera/work/code/interview/charles
+  ./mvnw test
+  ```
+- **Run Web Server & Fullstack UI**:
+  ```bash
+  ./mvnw spring-boot:run
+  ```
+  Then open [http://localhost:8080](http://localhost:8080) to interact with the visual dashboard, test personas, and live acceptance demo.
 
-### Run Automated Unit & Concurrency Tests
-Execute the entire test suite (22 unit and concurrency tests):
-```bash
-cd /Users/veera/work/code/interview/charles
-python3 -m unittest discover -v tests
-```
+---
 
-### Run Self-Verifying Automated Demo
-Run the end-to-end acceptance demo that validates all rules and invariants:
-```bash
-python3 -m src.cli --demo
-```
-
-### Run Interactive CLI Shell
-Interact with the service live:
-```bash
-python3 -m src.cli
-```
-Available CLI commands:
-- `status` — View current capacity, enrolled learners, and waitlist order.
-- `enroll <learner_id>` — Enroll or waitlist a learner.
-- `drop <learner_id>` — Drop an enrolled learner (triggers FIFO promotion) or waitlist entry.
-- `register <id> <name> [completed_courses...]` — Add a new learner profile with completed prerequisites.
-- `demo` — Re-run the automated acceptance scenario.
-- `exit` — Quit.
+### Python Prototype (Standard Library)
+- **Prerequisites**: Python 3.8+ (zero third-party dependencies)
+- **Run Tests**:
+  ```bash
+  python3 -m unittest discover -v tests
+  ```
+- **Run Automated Acceptance Demo**:
+  ```bash
+  python3 -m src.cli --demo
+  ```
+- **Interactive CLI**:
+  ```bash
+  python3 -m src.cli
+  ```
 
 ---
 
