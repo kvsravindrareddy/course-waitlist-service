@@ -4,11 +4,12 @@
 
 The **KiVO Course Waitlist Service** is a high-reliability, thread-safe service slice implementing **course enrollment, dropping, and FIFO waitlist promotion** for a single course offering.
 
-The implementation is built as a **Java 17 / Spring Boot 3 Fullstack Application**, featuring:
+The implementation is built as a **Java 25 / Spring Boot 3.4.5 Fullstack Application**, featuring:
+- High-throughput execution powered by Java 25 Virtual Threads (`spring.threads.virtual.enabled=true`).
 - A high-concurrency Java service layer guarded by fair re-entrant locking (`ReentrantLock(true)`).
-- A RESTful HTTP API conforming to **OpenAPI 3.0.3** ([openapi.yaml](file:///Users/veera/work/code/interview/charles/openapi.yaml)).
+- A RESTful HTTP API conforming to **OpenAPI 3.0.3** with automated build-time interface code-generation (`openapi-generator-maven-plugin`).
 - An interactive single-page dashboard served directly from Spring Boot (`src/main/resources/static/`).
-- Comprehensive automated verification spanning unit tests, multi-threaded stress tests, and Behaviour-Driven Development (BDD) scenario specifications.
+- Comprehensive automated verification spanning unit tests, virtual thread concurrency tests, and Behaviour-Driven Development (BDD) scenario specifications.
 
 ```
 +------------------------------------------------------------------------+
@@ -120,8 +121,9 @@ The complete contract is defined in [openapi.yaml](file:///Users/veera/work/code
 
 | Architecture Choice | Alternative Considered | Selected Rationale |
 | :--- | :--- | :--- |
-| **Java 17 + Spring Boot 3** | Lightweight CLI / Node.js | Industry-standard enterprise backend with robust type safety, native concurrency primitives, and built-in REST support. |
-| **Fair ReentrantLock** | Synchronized blocks / AtomicInteger | Fair locks prevent thread starvation and guarantee exact chronological ordering during contention spikes. |
+| **Java 25 + Spring Boot 3.4.5 + Virtual Threads** | Lightweight CLI / Node.js | Modern high-throughput enterprise backend with lightweight virtual threads, robust type safety, native concurrency primitives, and built-in REST support. |
+| **OpenAPI Interface Generation** | Manually written controllers / DTOs | Single-source-of-truth contract (`openapi.yaml`) generates the controller interfaces and models during Maven build, eliminating contract drift. |
+| **Fair ReentrantLock** | Synchronized blocks / AtomicInteger | Fair locks prevent thread starvation and guarantee exact chronological ordering during contention spikes across virtual threads. |
 | **Skip-and-Retain** | Skip-and-Eject | Protects student queue tenure when prerequisite completion verification is pending. |
 | **Embedded Static SPA** | Separate React/Node frontend | Enables zero-configuration single-command execution (`./mvnw spring-boot:run`) without Node/npm build dependencies. |
 | **OpenAPI 3.0.3 Contract** | Ad-hoc Markdown documentation | Provides a machine-readable specification ready for client SDK generation and automated contract testing. |

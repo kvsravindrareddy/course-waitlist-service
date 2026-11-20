@@ -1,86 +1,119 @@
-# Course Waitlist Service — Engineering Assessment
+# Course Waitlist Service — Java 25 Enterprise Architecture
 
-A bounded, thread-safe, and self-verifying implementation of a **Course Enrollment, Drop, and FIFO Waitlist Promotion** service for a single course offering.
+A high-reliability, thread-safe service slice implementing **course enrollment, dropping, and FIFO waitlist promotion** for a single course offering.
 
-Built with Python 3 standard library (zero external dependencies).
+Built with **Java 25**, **Spring Boot 3.4.5**, **Java Virtual Threads (Project Loom)**, **OpenAPI 3.0 Contract-First Code Generation**, and **Cucumber-Style BDD Verification**.
 
 ---
 
 ## 1. Quick Start & Setup
 
-### Java Fullstack (Spring Boot 3 + Interactive UI + JUnit 5)
-- **Prerequisites**: JDK 17+
-- **Run Tests** (22 JUnit 5 tests covering capacity, duplicates, FIFO promotion, prerequisites, drops, and high concurrency):
-  ```bash
-  cd /Users/veera/work/code/interview/charles
-  ./mvnw test
-  ```
-- **Run Web Server & Fullstack UI**:
-  ```bash
-  ./mvnw spring-boot:run
-  ```
-  Then open [http://localhost:8080](http://localhost:8080) to interact with the visual dashboard, test personas, and live acceptance demo.
+### Environment Requirements
+- **JDK 25** (`openjdk@25` installed at `/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home`)
+- The included Maven Wrapper `./mvnw` is pre-configured to detect and use Java 25 automatically.
+
+### Run All Automated Tests (32 Tests)
+Runs all unit tests, virtual thread concurrency stress tests, and BDD scenario tests:
+```bash
+cd /Users/veera/work/code/interview/charles
+./mvnw test
+```
+
+### Run Web Application & Interactive Fullstack UI
+```bash
+./mvnw spring-boot:run
+```
+- **Interactive UI Dashboard**: [http://localhost:8080](http://localhost:8080)
+- **OpenAPI 3.0 Specification**: [http://localhost:8080/openapi.yaml](http://localhost:8080/openapi.yaml) or [openapi.yaml](file:///Users/veera/work/code/interview/charles/openapi.yaml)
+- **Swagger UI Interactive API Docs**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 
 ---
 
-### Python Prototype (Standard Library)
-- **Prerequisites**: Python 3.8+ (zero third-party dependencies)
-- **Run Tests**:
-  ```bash
-  python3 -m unittest discover -v tests
-  ```
-- **Run Automated Acceptance Demo**:
-  ```bash
-  python3 -m src.cli --demo
-  ```
-- **Interactive CLI**:
-  ```bash
-  python3 -m src.cli
-  ```
+## 2. Architecture & Design Highlights
+
+1. **Java 25 & Virtual Threads**:
+   - `spring.threads.virtual.enabled: true` in `application.yml` provisions lightweight virtual threads for high concurrency without thread pool starvation.
+   - Guarded by fair re-entrant locking (`ReentrantLock(true)`) preventing thread starvation and race conditions during high-volume spikes.
+
+2. **OpenAPI 3.0 Contract-First**:
+   - Contract defined in `openapi.yaml`.
+   - `openapi-generator-maven-plugin` (7.1.0) generates `WaitlistApi` server interface and typed DTOs into `target/generated-sources/openapi/`.
+   - `WaitlistApiController` implements `WaitlistApi` directly, ensuring zero contract drift.
+
+3. **Behavior-Driven Development (BDD)**:
+   - Full Gherkin feature file in `src/test/resources/features/course_waitlist.feature`.
+   - Traceability matrix and persona narratives documented in `BDD_SPEC.md`.
+   - Step definitions and execution verified via JUnit 5 in `CourseWaitlistBddTest.java`.
+
+4. **Skip-and-Retain Waitlist Policy**:
+   - If the front-of-queue learner does not satisfy prerequisites at the time a seat opens, the system **skips** them to inspect the next earliest learner, while **retaining** the ineligible learner in their position so their seniority is preserved once they meet the prerequisites.
 
 ---
 
-## 2. Project Structure
+## 3. Project Structure
 
 ```
 /Users/veera/work/code/interview/charles/
-├── DESIGN_SPEC.md              # Complete design specification & invariants
-├── AI_USE_RECORD.md            # AI prompts, decisions, evaluations, and verification
-├── LIMITATIONS_AND_RISKS.md    # Production follow-up risks and architectural limitations
-├── README.md                   # Setup, execution instructions, and acceptance mapping
+├── pom.xml                                      # Maven POM: Java 25, Spring Boot 3.4.5, OpenAPI plugin
+├── openapi.yaml                                 # OpenAPI 3.0.3 Contract Specification
+├── DESIGN_SPEC.md                               # Comprehensive Architecture & Invariant Specification
+├── BDD_SPEC.md                                  # BDD Feature Specification & Traceability Matrix
+├── AI_USE_RECORD.md                             # AI Prompt Record, Evaluation, and Verification Audit
+├── LIMITATIONS_AND_RISKS.md                     # Production Follow-up Risks & In-Memory Boundaries
+├── mvnw                                         # Self-contained Maven Wrapper (Java 25 configured)
 ├── src/
-│   ├── __init__.py             # Package exports
-│   ├── models.py               # Domain dataclasses & typed status enums
-│   ├── service.py              # Thread-safe CourseWaitlistService with Skip-and-Retain policy
-│   └── cli.py                  # Interactive REPL & automated demonstration runner
-└── tests/
-    ├── __init__.py             # Test package initialization
-    ├── test_enrollment.py      # Available capacity, prerequisites, and duplicate enrollments
-    ├── test_waitlist.py        # Full capacity, FIFO queue, duplicate waitlist prevention
-    ├── test_promotion.py       # FIFO promotion, Skip-and-Retain policy, seat opening
-    ├── test_drops.py           # Valid drop, repeated/duplicate drop, drop from waitlist
-    └── test_concurrency.py     # Multi-threaded contention & concurrent drop/promotions
+│   ├── main/
+│   │   ├── java/com/kivo/waitlist/
+│   │   │   ├── CourseWaitlistApplication.java   # Spring Boot 3.4.5 Entrypoint
+│   │   │   ├── controller/
+│   │   │   │   └── WaitlistApiController.java   # Implements OpenAPI-generated WaitlistApi
+│   │   │   ├── service/
+│   │   │   │   └── CourseWaitlistService.java   # Thread-safe core domain service
+│   │   │   └── model/
+│   │   │       ├── CourseOffering.java          # Offering aggregate root
+│   │   │       ├── Learner.java                 # Learner profile & completed prerequisites
+│   │   │       ├── EnrollmentResult.java        # Typed enrollment response
+│   │   │       ├── DropResult.java              # Typed drop response
+│   │   │       └── OfferingSnapshot.java        # Point-in-time immutable snapshot
+│   │   └── resources/
+│   │       ├── application.yml                  # Config (Virtual Threads enabled, CS201 defaults)
+│   │       └── static/
+│   │           ├── index.html                   # Interactive Single-Page Application (SPA)
+│   │           ├── app.js                       # Real-time state management & API client
+│   │           ├── style.css                    # Responsive modern dashboard styles
+│   │           └── openapi.yaml                 # Static OpenAPI contract
+│   └── test/
+│       ├── java/com/kivo/waitlist/
+│       │   ├── CourseEnrollmentTest.java        # Capacity & prerequisite unit tests (7 tests)
+│       │   ├── CourseWaitlistTest.java          # FIFO waitlist & idempotency unit tests (5 tests)
+│       │   ├── CoursePromotionTest.java         # Drop & Skip-and-Retain unit tests (4 tests)
+│       │   ├── CourseDropsTest.java             # Repeated drop & non-member drop tests (4 tests)
+│       │   ├── CourseConcurrencyTest.java       # Virtual threads & barrier concurrency tests (3 tests)
+│       │   └── bdd/
+│       │       └── CourseWaitlistBddTest.java   # 9 BDD scenario test executions
+│       └── resources/features/
+│           └── course_waitlist.feature          # Gherkin BDD specification
 ```
 
 ---
 
-## 3. Acceptance Criteria Mapping
+## 4. Acceptance Criteria Verification Matrix
 
-| # | Acceptance Criterion | Implementation & Test Evidence |
-| :--- | :--- | :--- |
-| **1** | **Enrollment succeeds** when capacity remains and learner meets prerequisites. | Enforces prerequisite checks in `service.enroll()`. Covered by `test_successful_enrollment_with_prerequisite` in `test_enrollment.py`. |
-| **2** | **When full, eligible learner joins waitlist once**; duplicate enrollment requests do not create duplicate records. | Returns `WAITLISTED` with position tracking. Duplicate calls return `ALREADY_WAITLISTED`. Covered by `test_waitlist_activation_upon_reaching_capacity` and `test_duplicate_waitlist_attempt_is_rejected_idempotently` in `test_waitlist.py`. |
-| **3** | **Dropping an enrolled learner opens a seat and promotes the earliest eligible learner** according to the documented eligibility policy. | `service.drop()` removes enrolled learner and invokes `_promote_next_eligible()`. Covered by `test_fifo_promotion_upon_drop` in `test_promotion.py`. |
-| **4** | **Ineligible learner is not enrolled or promoted**; documented policy for skipping or retaining is applied consistently. | **Skip-and-Retain Policy** implemented: ineligible waitlisted learners are skipped during promotion but retain their queue seniority. Covered by `test_skip_and_retain_policy_for_ineligible_waitlisted_learner` in `test_promotion.py`. |
-| **5** | **Invalid requests and duplicate drops** return clear results without corrupting enrollment, capacity, or waitlist state. | Returns `NOT_ENROLLED` or `INVALID_REQUEST` without modifying counters. Covered by `test_repeated_drop_of_enrolled_learner` and `test_invalid_learner_id_on_drop` in `test_drops.py`. |
-| **6** | **Tests cover all required scenarios including concurrency**. | 22 comprehensive tests covering capacity, duplicates, FIFO promotion, prerequisites, invalid drops, and multi-threaded barrier contention (`test_concurrency.py`). |
-| **7** | **AI used for at least one engineering activity** with complete prompt record, review, and verification evidence. | Fully documented in `AI_USE_RECORD.md` with prompt records, critical evaluations, rejected suggestions, and verification logs. |
+| # | Criterion | Implementation Detail | Test Verification |
+| :--- | :--- | :--- | :--- |
+| **1** | **Enrollment succeeds** with capacity and prerequisites | Prerequisite checking against `learner.completedCourses` under lock | `CourseEnrollmentTest`, BDD `@enrollment` |
+| **2** | **Full capacity triggers FIFO waitlist once** without duplicates | Enqueues eligible learner; rejects duplicates idempotently | `CourseWaitlistTest`, BDD `@waitlist` |
+| **3** | **Drop opens seat & promotes earliest eligible learner** | Removes learner and promotes head of waitlist | `CoursePromotionTest`, BDD `@drop` |
+| **4** | **Skip-and-Retain policy applied consistently** | Ineligible waitlisted learner is skipped during promotion but retains seniority | `CoursePromotionTest`, BDD `@promotion` |
+| **5** | **Invalid requests & duplicate drops handled safely** | Returns clear `NOT_ENROLLED` without modifying state or leaking seats | `CourseDropsTest`, BDD `@edge-cases` |
+| **6** | **High concurrency & virtual threads verification** | Multi-threaded barrier tests & Java 25 virtual thread stress tests | `CourseConcurrencyTest` (100 virtual threads) |
+| **7** | **AI Engineering Prompt & Audit Record** | Complete prompt trail, decisions, edits, and verification evidence | `AI_USE_RECORD.md` |
 
 ---
 
-## 4. Key Architectural Invariants
+## 5. Invariants Maintained
 
 1. **Capacity Invariant**: $0 \le |\text{enrolled\_learners}| \le \text{capacity}$ at all times.
-2. **Mutual Exclusion Invariant**: $\text{enrolled\_learners} \cap \text{waitlist} = \emptyset$. A learner can never be both enrolled and waitlisted simultaneously.
-3. **Queue Integrity Invariant**: The waitlist strictly preserves FIFO placement order. Duplicate registration attempts do not reset queue seniority.
-4. **Prerequisite Invariant**: A learner cannot enter `enrolled_learners` (either via direct enrollment or waitlist promotion) unless $\text{prerequisites} \subseteq \text{completed\_courses}$.
+2. **Mutual Exclusion Invariant**: $\text{enrolled\_learners} \cap \text{waitlist} = \emptyset$.
+3. **Queue Integrity Invariant**: The waitlist strictly preserves FIFO placement order.
+4. **Prerequisite Invariant**: A learner cannot enter `enrolled_learners` unless prerequisites are met.

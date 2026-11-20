@@ -125,4 +125,58 @@ class CourseConcurrencyTest {
         assertEquals(0, finalSnap.getAvailableSeats());
         assertEquals(waitlistSize - capacity, finalSnap.getWaitlist().size(), "Waitlist must be reduced by 5");
     }
+
+    @Test
+    @DisplayName("Java 25 Virtual Threads: 100 concurrent virtual threads contending for seats maintain strict invariants")
+    void testVirtualThreadContention() throws Exception {
+        int capacity = 10;
+        int totalLearners = 100;
+
+        CourseOffering offering = new CourseOffering(
+                "VT25_101",
+                "Virtual Threads High Concurrency",
+                capacity,
+                Set.of("PREREQ_VT")
+        );
+        CourseWaitlistService service = new CourseWaitlistService(offering);
+
+        for (int i = 0; i < totalLearners; i++) {
+            String lid = String.format("VT_%03d", i);
+            service.registerLearner(new Learner(lid, "Virtual Learner " + i, Set.of("PREREQ_VT")));
+        }
+
+        CyclicBarrier barrier = new CyclicBarrier(totalLearners);
+        List<Future<EnrollmentResult>> futures = new ArrayList<>();
+
+        try (ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i < totalLearners; i++) {
+                final String lid = String.format("VT_%03d", i);
+                futures.add(virtualExecutor.submit(() -> {
+                    assertTrue(Thread.currentThread().isVirtual(), "Task must execute on a Java Virtual Thread");
+                    barrier.await();
+                    return service.enroll(lid);
+                }));
+            }
+        }
+
+        AtomicInteger enrolledCount = new AtomicInteger(0);
+        AtomicInteger waitlistedCount = new AtomicInteger(0);
+
+        for (Future<EnrollmentResult> f : futures) {
+            EnrollmentResult res = f.get();
+            if (res.getStatus() == EnrollmentStatus.ENROLLED) {
+                enrolledCount.incrementAndGet();
+            } else if (res.getStatus() == EnrollmentStatus.WAITLISTED) {
+                waitlistedCount.incrementAndGet();
+            }
+        }
+
+        assertEquals(capacity, enrolledCount.get(), "Virtual threads must strictly respect capacity");
+        assertEquals(totalLearners - capacity, waitlistedCount.get(), "Virtual threads must safely waitlist overflow");
+
+        OfferingSnapshot snap = service.getSnapshot();
+        assertEquals(capacity, snap.getEnrolledCount());
+        assertEquals(0, snap.getAvailableSeats());
+        assertEquals(totalLearners - capacity, snap.getWaitlist().size());
+    }
 }

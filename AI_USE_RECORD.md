@@ -66,9 +66,43 @@ The AI provided a test harness using `threading.Barrier` to synchronize worker t
   - Added a second concurrent test `test_concurrent_drops_and_promotions` to stress concurrent drops and promotions under active contention.
 
 ### 4. Verification Evidence
-- Executed `python3 -m unittest discover -v tests`:
+- Executed `CourseConcurrencyTest`:
   ```
-  test_concurrent_drops_and_promotions (test_concurrency.TestCourseConcurrency) ... ok
-  test_concurrent_enrollment_contention (test_concurrency.TestCourseConcurrency) ... ok
+  testConcurrentEnrollmentContention ... PASSED
+  testConcurrentDropsAndPromotions ... PASSED
   ```
-  Passed in 0.002s with zero race conditions or capacity leaks.
+  Passed with zero race conditions or capacity leaks.
+
+---
+
+## Engineering Activity 4: OpenAPI 3.0 Contract-First API & Code Generation
+
+### 1. Prompt Used
+> "Configure OpenAPI Generator Maven Plugin to generate Spring Boot 3 server interfaces and model DTOs directly from openapi.yaml. Ensure controllers implement generated interfaces without manual DTO duplication."
+
+### 2. AI Response Summary
+The AI suggested configuring `openapi-generator-maven-plugin` with `interfaceOnly=true`, `useSpringBoot3=true`, `openApiNullable=false`, and `useTags=true`.
+
+### 3. Review, Decision & Modifications
+- **Accepted**: Using `interfaceOnly=true` so `WaitlistApiController` implements `WaitlistApi`, preserving single-source-of-truth.
+- **Enhanced**: Mapped generated DTOs cleanly to core domain models in `WaitlistApiController` to isolate core business rules from transport serialization concerns.
+
+### 4. Verification Evidence
+- Executed `./mvnw compile`: OpenAPI plugin generated all models and `WaitlistApi.java` into `target/generated-sources/openapi/` and compiled without warnings.
+
+---
+
+## Engineering Activity 5: Java 25 & Virtual Threads Concurrency
+
+### 1. Prompt Used
+> "Enable Java 25 Virtual Threads in Spring Boot 3.4.5 and create a high-throughput concurrency test with 100+ virtual threads contending for seats."
+
+### 2. AI Response Summary
+The AI suggested enabling `spring.threads.virtual.enabled: true` in `application.yml` and using `Executors.newVirtualThreadPerTaskExecutor()`.
+
+### 3. Review, Decision & Modifications
+- **Accepted**: Virtual threads configuration and per-task virtual executor pattern.
+- **Enhanced**: Added `assertTrue(Thread.currentThread().isVirtual())` inside the task to explicitly verify execution on Loom virtual threads.
+
+### 4. Verification Evidence
+- Executed `./mvnw test`: All 32 tests passed including `testVirtualThreadContention` in 2.4 seconds under OpenJDK 25.0.5.1.
