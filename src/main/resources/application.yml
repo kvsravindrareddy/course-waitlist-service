@@ -1,0 +1,14 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: course-waitlist-service
+
+waitlist:
+  default-offering:
+    id: "CS201"
+    title: "Data Structures & Algorithms"
+    capacity: 2
+    prerequisites:
+      - "CS101"

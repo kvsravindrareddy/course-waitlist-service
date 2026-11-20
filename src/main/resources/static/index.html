@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Waitlist Management — Fullstack Service</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-badge">🎓</div>
+                <div>
+                    <h1>KiVO Course Waitlist Service</h1>
+                    <p class="subtitle">Thread-Safe FIFO Promotion & Prerequisite Engine</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <span class="badge badge-pulse">● System Live</span>
+                <span class="badge badge-info" id="policy-badge">Policy: Skip & Retain</span>
+                <button class="btn btn-secondary btn-sm" id="btn-reset">↺ Reset State</button>
+            </div>
+        </header>
+
+        <!-- Course Offering Hero Card -->
+        <section class="card course-hero">
+            <div class="course-meta">
+                <div class="course-title-group">
+                    <span class="course-code" id="course-id">CS201</span>
+                    <h2 id="course-title">Data Structures & Algorithms</h2>
+                </div>
+                <div class="course-tags">
+                    <span class="tag tag-prereq">Prerequisite: <strong id="course-prereq">CS101</strong></span>
+                    <span class="tag tag-cap">Capacity: <strong id="course-capacity">2</strong></span>
+                </div>
+            </div>
+
+            <!-- Capacity Progress Bar -->
+            <div class="capacity-meter">
+                <div class="meter-labels">
+                    <span>Enrolled: <strong id="enrolled-count">0</strong> / <span id="capacity-total">2</span></span>
+                    <span>Available Seats: <strong id="available-seats">2</strong></span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="capacity-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main 3-Column Layout -->
+        <div class="dashboard-grid">
+            <!-- 1. Enrolled Column -->
+            <div class="dashboard-col">
+                <div class="col-header">
+                    <h3>Enrolled Learners <span class="counter-bubble" id="enrolled-bubble">0</span></h3>
+                    <span class="col-sub">Active seat holders</span>
+                </div>
+                <div class="card-list" id="enrolled-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- 2. Waitlist Column -->
+            <div class="dashboard-col">
+                <div class="col-header">
+                    <h3>Waitlist Queue <span class="counter-bubble counter-waitlist" id="waitlist-bubble">0</span></h3>
+                    <span class="col-sub">Strict FIFO priority order</span>
+                </div>
+                <div class="card-list" id="waitlist-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- 3. Actions & Personas Column -->
+            <div class="dashboard-col">
+                <div class="col-header">
+                    <h3>Quick Enrollment</h3>
+                    <span class="col-sub">Simulate student actions</span>
+                </div>
+
+                <div class="card action-card">
+                    <h4>Test Personas</h4>
+                    <div class="persona-buttons" id="persona-buttons">
+                        <!-- Buttons populated dynamically -->
+                    </div>
+
+                    <hr class="divider">
+
+                    <h4>Custom Enrollment</h4>
+                    <form id="custom-enroll-form" class="custom-form">
+                        <select id="learner-select" class="form-input">
+                            <option value="">-- Choose registered learner --</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary btn-block">Enroll in Course</button>
+                    </form>
+
+                    <hr class="divider">
+
+                    <button class="btn btn-accent btn-block" id="btn-run-acceptance-demo">
+                        ▶ Run Acceptance Verification Demo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit & Event Trail -->
+        <section class="card audit-section">
+            <div class="audit-header">
+                <h3>Live Transaction Audit Log</h3>
+                <button class="btn btn-ghost btn-sm" id="btn-clear-log">Clear</button>
+            </div>
+            <div class="audit-stream" id="audit-stream">
+                <div class="log-entry log-info">
+                    <span class="log-time">[System]</span>
+                    <span class="log-badge badge-info">INITIALIZED</span>
+                    <span class="log-msg">Course offering CS201 loaded with capacity 2 and prerequisite CS101.</span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
