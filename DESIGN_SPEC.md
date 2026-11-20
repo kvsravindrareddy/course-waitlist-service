@@ -1,139 +1,127 @@
-# Course Waitlist Service — Design Specification
+# Course Waitlist Service — Java Fullstack Design Specification
 
-## 1. Executive Summary & Service Boundary
-This document specifies the design of a bounded, reliable service slice for **course enrollment, dropping, and FIFO waitlist promotion** for a single course offering.
+## 1. System Boundary & Architecture Overview
 
-The service manages:
-- Verification of learner prerequisites.
-- Direct enrollment into a course offering up to a fixed maximum capacity.
-- Insertion into a First-In-First-Out (FIFO) waitlist once capacity is reached.
-- Automatic promotion of waitlisted learners when an enrolled learner drops.
-- A consistent, documented eligibility policy handling waitlisted learners whose prerequisites are not met.
-- Robust handling of duplicate, invalid, or concurrent operations without state corruption.
+The **KiVO Course Waitlist Service** is a high-reliability, thread-safe service slice implementing **course enrollment, dropping, and FIFO waitlist promotion** for a single course offering.
 
-### Out of Scope (Explicit Boundaries)
-- Multi-course catalogs, shopping carts, or multi-term scheduling.
-- Billing, tuition payments, or identity/SSO integrations.
-- Persistent database servers (RDBMS/NoSQL) — an in-memory, thread-safe transactional store is used.
-- User interface (web/mobile) — interaction is provided via programmatic API and interactive CLI.
+The implementation is built as a **Java 17 / Spring Boot 3 Fullstack Application**, featuring:
+- A high-concurrency Java service layer guarded by fair re-entrant locking (`ReentrantLock(true)`).
+- A RESTful HTTP API conforming to **OpenAPI 3.0.3** ([openapi.yaml](file:///Users/veera/work/code/interview/charles/openapi.yaml)).
+- An interactive single-page dashboard served directly from Spring Boot (`src/main/resources/static/`).
+- Comprehensive automated verification spanning unit tests, multi-threaded stress tests, and Behaviour-Driven Development (BDD) scenario specifications.
+
+```
++------------------------------------------------------------------------+
+|                     Client Tier (Browser / REST Clients)               |
++------------------------------------------------------------------------+
+           |                                            |
+      GET / (HTML/JS/CSS)                        POST /api/enroll, /drop
+           v                                            v
++------------------------------------------------------------------------+
+|                 WaitlistApiController (Spring MVC REST)                |
++------------------------------------------------------------------------+
+                                   |
+                      DTO Validation (@Valid)
+                                   v
++------------------------------------------------------------------------+
+|                      CourseWaitlistService                             |
+|          Guarded by Fair ReentrantLock (Strict FIFO Ordering)          |
++------------------------------------------------------------------------+
+      |                           |                           |
+      v                           v                           v
++------------------+    +-------------------+    +--------------------+
+| Enrolled Roster  |    | FIFO Waitlist     |    | Learner Repository |
+| List<String>     |    | List<String>      |    | ConcurrentHashMap  |
++------------------+    +-------------------+    +--------------------+
+```
 
 ---
 
-## 2. Domain Data Model & Invariants
+## 2. Java Domain Model & Core Invariants
 
-```
-+--------------------------------------------------------------+
-|                        CourseOffering                        |
-+--------------------------------------------------------------+
-| - id: str                                                    |
-| - title: str                                                 |
-| - capacity: int (> 0)                                        |
-| - prerequisites: Set[str]                                    |
-| - enrolled_learners: List[str]  (ordered by enrollment time) |
-| - waitlist: List[str]           (strict FIFO order)          |
-+--------------------------------------------------------------+
-                               |
-                               | registers
-                               v
-+--------------------------------------------------------------+
-|                           Learner                            |
-+--------------------------------------------------------------+
-| - id: str                                                    |
-| - name: str                                                  |
-| - completed_courses: Set[str]                                |
-+--------------------------------------------------------------+
+### 2.1 Domain Entities
+
+```java
+// Course Offering
+public class CourseOffering {
+    private final String id;
+    private final String title;
+    private final int capacity;           // Must be > 0
+    private final Set<String> prerequisites;
+}
+
+// Learner
+public class Learner {
+    private final String id;
+    private final String name;
+    private final Set<String> completedCourses;
+    public boolean hasPrerequisites(Set<String> required);
+}
 ```
 
-### Core Invariants
-1. **Capacity Invariant**: `0 <= len(enrolled_learners) <= capacity` at all times.
-2. **Mutual Exclusion Invariant**: An individual learner $L$ can exist in at most one state for a given offering:
-   - $L \in \text{enrolled\_learners}$, OR
-   - $L \in \text{waitlist}$, OR
-   - $L \notin \text{offering}$.
-   Under no circumstances can a learner be both enrolled and waitlisted simultaneously.
-3. **Waitlist Uniqueness Invariant**: No duplicate entries are permitted on the waitlist. If $L \in \text{waitlist}$, subsequent enrollment requests by $L$ return `ALREADY_WAITLISTED` and preserve their original queue position.
-4. **FIFO Order Invariant**: Learners on the waitlist are stored in the exact chronological order of their waitlist placement.
-5. **Prerequisite Invariant**: A learner $L$ cannot be moved to `enrolled_learners` (either via initial enrollment or promotion) unless $\text{prerequisites} \subseteq L.\text{completed\_courses}$.
+### 2.2 System Invariants
+
+1. **Capacity Invariant**: `0 <= enrolled.size() <= capacity` at all times. No operation or concurrent race may cause active enrollments to exceed configured capacity.
+2. **Mutual Exclusion Invariant**: For any learner $L$:
+   $$\text{enrolled} \cap \text{waitlist} = \emptyset$$
+   A learner can occupy exactly one state: `enrolled`, `waitlisted`, or `unregistered`.
+3. **Queue Seniority Invariant**: Waitlist order is strict FIFO (arrival order). Duplicate enrollment requests by an already waitlisted learner return `ALREADY_WAITLISTED` without modifying their queue position.
+4. **Prerequisite Invariant**: A learner cannot enter `enrolled` (via direct registration or promotion) unless:
+   $$\text{prerequisites} \subseteq \text{learner.completedCourses}$$
 
 ---
 
 ## 3. Prerequisite & Waitlist Eligibility Policy
 
-### The Ineligible Waitlist Dilemma
-When learners waitlist, weeks may elapse before a seat opens. During this time:
-- A learner might not yet have completed the prerequisite when joining the waitlist, hoping to finish it before class starts.
-- A prerequisite could be revoked or re-evaluated.
-- When an enrolled learner drops and a seat opens, the learner at the head of the waitlist might be **ineligible**.
-
 ### Policy Decision: "Skip and Retain"
-We adopt the **Skip-and-Retain Policy** (standard in academic registrar systems):
+In academic course registration, students frequently queue for advanced courses while awaiting final grades for prerequisites. Ejecting an ineligible student from the waitlist when a seat opens is punitive and administratively burdensome.
+
+Under our **Skip-and-Retain Policy**:
 1. **At Drop / Promotion Time**:
-   - The queue is inspected sequentially from head to tail (FIFO).
-   - The earliest learner who **satisfies all prerequisites** is promoted to `enrolled_learners` and removed from `waitlist`.
-   - Any learner ahead of them who is **ineligible is skipped**: they are **not promoted**, but they **retain their position** in the waitlist.
-   - Rationale: Disqualifying and ejecting a student from the waitlist because their grade hasn't posted yet is overly punitive; retaining their position gives them an opportunity to qualify for later drops while ensuring the immediately opening seat is never wasted or given to an unqualified learner.
+   - When an enrolled seat opens, the service iterates through the waitlist from head to tail (FIFO).
+   - The **first learner who satisfies all prerequisites** is promoted to enrolled status and removed from the waitlist.
+   - Any learner ahead of them who is currently ineligible is **skipped but retained** at their exact queue index.
+   - If that skipped learner later completes their prerequisite before a subsequent seat opens, their priority tenure is fully preserved.
 2. **At Initial Enrollment Time**:
-   - When capacity is available, a learner who lacks prerequisites is **rejected immediately** with `PREREQUISITE_NOT_MET`. They cannot occupy a seat.
-   - When capacity is full, a learner may join the waitlist only if eligible, or optionally register interest; our default baseline enforces that learners joining the waitlist must satisfy prerequisites at entry, while promotion re-verifies eligibility dynamically at promotion time to guard against state drift.
+   - If capacity is available and prerequisites are missing: Rejected immediately (`PREREQUISITE_NOT_MET`).
+   - If capacity is full and prerequisites are missing: Rejected immediately (`PREREQUISITE_NOT_MET`).
 
 ---
 
-## 4. API & Operations Specification
+## 4. Concurrency & Synchronization Model
 
-### 4.1 `enroll(learner: Learner) -> EnrollmentResult`
-- **Preconditions**: `learner.id` is non-empty; offering exists.
-- **Algorithm**:
-  1. Acquire re-entrant lock.
-  2. If `learner.id` in `enrolled_learners` $\rightarrow$ Return `ALREADY_ENROLLED`.
-  3. If `learner.id` in `waitlist` $\rightarrow$ Return `ALREADY_WAITLISTED`.
-  4. If `len(enrolled_learners) < capacity`:
-     - If $\text{prerequisites} \not\subseteq \text{learner.completed\_courses}$ $\rightarrow$ Return `PREREQUISITE_NOT_MET`.
-     - Else: Add `learner.id` to `enrolled_learners` $\rightarrow$ Return `ENROLLED`.
-  5. Else (`len(enrolled_learners) == capacity`):
-     - If $\text{prerequisites} \not\subseteq \text{learner.completed\_courses}$ $\rightarrow$ Return `PREREQUISITE_NOT_MET`.
-     - Else: Append `learner.id` to `waitlist` $\rightarrow$ Return `WAITLISTED(position=len(waitlist))`.
+### The Fair Lock Strategy
+In high-throughput registration events (e.g., class registration opening at 8:00 AM), thousands of concurrent requests strike the server within milliseconds.
 
-### 4.2 `drop(learner_id: str, learner_lookup: Callable) -> DropResult`
-- **Preconditions**: `learner_id` is non-empty.
-- **Algorithm**:
-  1. Acquire re-entrant lock.
-  2. If `learner_id` in `waitlist`:
-     - Remove `learner_id` from `waitlist`.
-     - Return `DROPPED_FROM_WAITLIST`.
-  3. If `learner_id` not in `enrolled_learners`:
-     - Return `NOT_ENROLLED` (idempotent, no side effects).
-  4. Remove `learner_id` from `enrolled_learners`. (Seat opens).
-  5. **FIFO Promotion Evaluation**:
-     - Iterate through `waitlist` in FIFO index order:
-       - Retrieve waitlisted learner via `learner_lookup(waitlist_id)`.
-       - Check if waitlisted learner satisfies `prerequisites`.
-       - If eligible:
-         - Remove from `waitlist`.
-         - Append to `enrolled_learners`.
-         - Return `DROPPED_AND_PROMOTED(dropped=learner_id, promoted=waitlist_id)`.
-       - If ineligible:
-         - Skip this learner (leave in waitlist at current rank).
-         - Continue to next waitlisted learner.
-     - If no eligible candidate found on waitlist:
-       - Available seats increment by 1.
-       - Return `DROPPED_NO_PROMOTION(dropped=learner_id)`.
+To guarantee ACID properties and deterministic FIFO queue placement without a database:
+- We utilize `java.util.concurrent.locks.ReentrantLock(true)` (fair lock).
+- When multiple threads contend for the lock, the JVM grants acquisition in order of thread arrival.
+- All mutating operations (`enroll`, `drop`, `reset`, and `getSnapshot`) execute inside `try { lock.lock(); ... } finally { lock.unlock(); }` blocks.
+- This prevents race conditions where two threads observe `availableSeats = 1` and both enroll, causing over-subscription.
 
 ---
 
-## 5. Concurrency & Synchronization Architecture
-To guarantee ACID invariants in a multi-threaded service environment without a database:
-- Each `CourseOffering` is guarded by an internal re-entrant lock (`threading.RLock`).
-- Atomic read-modify-write blocks encapsulate all enrollment, drop, and promotion transactions.
-- Fine-grained per-offering locking ensures that operations on different offerings do not bottleneck one another.
-- Concurrency testing verifies that 20+ threads competing for limited capacity cannot breach `capacity` or produce inconsistent waitlist orders.
+## 5. REST API & OpenAPI 3.0 Mapping
+
+The complete contract is defined in [openapi.yaml](file:///Users/veera/work/code/interview/charles/openapi.yaml).
+
+| Method | Endpoint | Request Body | Response Body | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/offering` | *None* | `OfferingSnapshot` | Real-time capacity, enrolled count, seat lists, waitlist queue. |
+| `GET` | `/api/learners` | *None* | `List<Learner>` | List of all registered learners and completed prerequisites. |
+| `POST` | `/api/learners` | `RegisterLearnerRequest` | `Learner` | Registers or updates a learner profile. |
+| `POST` | `/api/enroll` | `EnrollRequest` (`{ learnerId }`) | `EnrollmentResult` | Attempts enrollment; returns `ENROLLED`, `WAITLISTED`, etc. |
+| `POST` | `/api/drop` | `DropRequest` (`{ learnerId }`) | `DropResult` | Drops enrolled or waitlisted learner; triggers auto-promotion. |
+| `POST` | `/api/reset` | *None* | `OfferingSnapshot` | Resets offering to default baseline for demo/testing. |
 
 ---
 
-## 6. Tradeoffs & Design Decisions
+## 6. Architectural Tradeoffs
 
-| Decision | Alternative Considered | Selected Rationale |
+| Architecture Choice | Alternative Considered | Selected Rationale |
 | :--- | :--- | :--- |
-| **Skip and Retain** | Drop ineligible learners from queue | Preserves learner queue tenure while ensuring active seats are filled only by qualified candidates. |
-| **In-Memory Store with RLock** | SQLite / External RDBMS | Scope boundaries strictly forbid extra database setup unless required; standard library locking provides 100% thread safety and zero configuration. |
-| **Dynamic Prerequisite Verification** | Static check at queue join only | Guarantees that if a learner's status changes while waiting, ineligible learners are never promoted into a seat. |
-| **Idempotent Drop & Duplicate Protection** | Raise generic runtime exceptions | Returning explicit result enums (`NOT_ENROLLED`, `ALREADY_ENROLLED`) ensures clients receive deterministic responses without corrupting state. |
+| **Java 17 + Spring Boot 3** | Lightweight CLI / Node.js | Industry-standard enterprise backend with robust type safety, native concurrency primitives, and built-in REST support. |
+| **Fair ReentrantLock** | Synchronized blocks / AtomicInteger | Fair locks prevent thread starvation and guarantee exact chronological ordering during contention spikes. |
+| **Skip-and-Retain** | Skip-and-Eject | Protects student queue tenure when prerequisite completion verification is pending. |
+| **Embedded Static SPA** | Separate React/Node frontend | Enables zero-configuration single-command execution (`./mvnw spring-boot:run`) without Node/npm build dependencies. |
+| **OpenAPI 3.0.3 Contract** | Ad-hoc Markdown documentation | Provides a machine-readable specification ready for client SDK generation and automated contract testing. |

@@ -1,0 +1,308 @@
+openapi: 3.0.3
+info:
+  title: KiVO Course Waitlist Service API
+  description: |
+    Thread-safe Course Enrollment, Drop, and FIFO Waitlist Promotion Service.
+    Enforces capacity limits, prerequisite verification, and the Skip-and-Retain waitlist promotion policy.
+  version: 1.0.0
+  contact:
+    name: KiVO Engineering Team
+    email: engineering@kivolearning.com
+
+servers:
+  - url: http://localhost:8080
+    description: Local Spring Boot Server
+
+paths:
+  /api/offering:
+    get:
+      summary: Retrieve Course Offering Snapshot
+      description: Returns real-time capacity, enrolled learner IDs, available seats, and the FIFO waitlist.
+      operationId: getOfferingSnapshot
+      responses:
+        '200':
+          description: Current offering state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferingSnapshot'
+
+  /api/learners:
+    get:
+      summary: List Registered Learners
+      description: Returns all learners registered in the in-memory repository with their completed prerequisite courses.
+      operationId: getAllLearners
+      responses:
+        '200':
+          description: List of registered learners
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Learner'
+    post:
+      summary: Register a Learner
+      description: Adds or updates a learner profile and their completed prerequisites.
+      operationId: registerLearner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterLearnerRequest'
+      responses:
+        '200':
+          description: Successfully registered learner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Learner'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/enroll:
+    post:
+      summary: Enroll a Learner
+      description: |
+        Attempts to enroll a learner in the course offering:
+        - If capacity is available and prerequisites are met: ENROLLED.
+        - If capacity is full and prerequisites are met: WAITLISTED (FIFO position assigned).
+        - If prerequisites are not met: PREREQUISITE_NOT_MET.
+        - If already enrolled: ALREADY_ENROLLED (idempotent rejection).
+        - If already waitlisted: ALREADY_WAITLISTED (idempotent rejection, preserves rank).
+      operationId: enrollLearner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollRequest'
+      responses:
+        '200':
+          description: Enrollment operation outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentResult'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/drop:
+    post:
+      summary: Drop a Learner
+      description: |
+        Removes a learner from the course offering or waitlist:
+        - If enrolled: Opens a seat and automatically promotes the earliest eligible waitlisted learner (Skip-and-Retain).
+        - If waitlisted: Removes the learner from the waitlist without opening an enrolled seat.
+        - If neither: Returns NOT_ENROLLED idempotently without altering state.
+      operationId: dropLearner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DropRequest'
+      responses:
+        '200':
+          description: Drop operation outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DropResult'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/reset:
+    post:
+      summary: Reset Offering State
+      description: Resets the course offering back to default baseline (capacity 2, prerequisite CS101, empty rosters) for testing.
+      operationId: resetOffering
+      responses:
+        '200':
+          description: Fresh offering snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferingSnapshot'
+
+components:
+  schemas:
+    OfferingSnapshot:
+      type: object
+      required:
+        - offeringId
+        - title
+        - capacity
+        - enrolledCount
+        - availableSeats
+        - enrolledLearners
+        - waitlist
+      properties:
+        offeringId:
+          type: string
+          example: "CS201"
+        title:
+          type: string
+          example: "Data Structures & Algorithms"
+        capacity:
+          type: integer
+          example: 2
+        enrolledCount:
+          type: integer
+          example: 2
+        availableSeats:
+          type: integer
+          example: 0
+        enrolledLearners:
+          type: array
+          items:
+            type: string
+          example: ["alice", "bob"]
+        waitlist:
+          type: array
+          items:
+            type: string
+          example: ["david", "eve"]
+
+    Learner:
+      type: object
+      required:
+        - id
+        - name
+        - completedCourses
+      properties:
+        id:
+          type: string
+          example: "alice"
+        name:
+          type: string
+          example: "Alice Chen"
+        completedCourses:
+          type: array
+          items:
+            type: string
+          example: ["CS101"]
+
+    RegisterLearnerRequest:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          example: "carol"
+        name:
+          type: string
+          example: "Carol Danvers"
+        completedCourses:
+          type: array
+          items:
+            type: string
+          example: ["CS101", "MATH100"]
+
+    EnrollRequest:
+      type: object
+      required:
+        - learnerId
+      properties:
+        learnerId:
+          type: string
+          example: "david"
+
+    DropRequest:
+      type: object
+      required:
+        - learnerId
+      properties:
+        learnerId:
+          type: string
+          example: "alice"
+
+    EnrollmentResult:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          $ref: '#/components/schemas/EnrollmentStatus'
+        message:
+          type: string
+          example: "Course is at capacity (2/2). Placed on waitlist at position #1."
+        waitlistPosition:
+          type: integer
+          nullable: true
+          example: 1
+        offeringId:
+          type: string
+          example: "CS201"
+        learnerId:
+          type: string
+          example: "david"
+
+    DropResult:
+      type: object
+      required:
+        - status
+        - message
+        - seatOpened
+      properties:
+        status:
+          $ref: '#/components/schemas/DropStatus'
+        message:
+          type: string
+          example: "Learner 'alice' dropped. Seat filled by waitlisted learner 'david'."
+        droppedLearnerId:
+          type: string
+          nullable: true
+          example: "alice"
+        promotedLearnerId:
+          type: string
+          nullable: true
+          example: "david"
+        seatOpened:
+          type: boolean
+          example: false
+
+    EnrollmentStatus:
+      type: string
+      enum:
+        - ENROLLED
+        - WAITLISTED
+        - ALREADY_ENROLLED
+        - ALREADY_WAITLISTED
+        - PREREQUISITE_NOT_MET
+        - INVALID_REQUEST
+
+    DropStatus:
+      type: string
+      enum:
+        - DROPPED
+        - DROPPED_AND_PROMOTED
+        - DROPPED_FROM_WAITLIST
+        - NOT_ENROLLED
+        - INVALID_REQUEST
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Bad Request"
+        message:
+          type: string
+          example: "Learner ID cannot be blank"
