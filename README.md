@@ -12,8 +12,8 @@ Built with **Java 25**, **Spring Boot 4.1.2**, **Java Virtual Threads (Project L
 - **JDK 25** (`openjdk@25` installed at `/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home`)
 - The included Maven Wrapper `./mvnw` is pre-configured to detect and use Java 25 automatically.
 
-### Run All Automated Tests (32 Tests)
-Runs all unit tests, virtual thread concurrency stress tests, and BDD scenario tests:
+### Run All Automated Tests (36 Tests)
+Runs all unit tests, virtual thread concurrency stress tests, multi-course catalog tests, and BDD scenario tests:
 ```bash
 cd /Users/veera/work/code/interview/course-waitlist-service
 ./mvnw test
@@ -61,6 +61,7 @@ cd /Users/veera/work/code/interview/course-waitlist-service
 ├── DESIGN_SPEC.md                               # Comprehensive Architecture, Sequence Diagrams & Invariants
 ├── BDD_SPEC.md                                  # BDD Feature Specification & Traceability Matrix
 ├── AI_USE_RECORD.md                             # AI Prompt Record, Evaluation, and Verification Audit
+├── Course-Registration-Rubric-Score.md          # Evaluation Scorecard against AI-Assisted Assessment Rubric
 ├── LIMITATIONS_AND_RISKS.md                     # Production Follow-up Risks & In-Memory Boundaries
 ├── mvnw                                         # Self-contained Maven Wrapper (Java 25 configured)
 ├── src/
@@ -92,6 +93,7 @@ cd /Users/veera/work/code/interview/course-waitlist-service
 │       │   ├── CourseWaitlistTest.java          # FIFO waitlist & idempotency unit tests (5 tests)
 │       │   ├── CoursePromotionTest.java         # Drop & Skip-and-Retain unit tests (4 tests)
 │       │   ├── CourseDropsTest.java             # Repeated drop & non-member drop tests (4 tests)
+│       │   ├── CourseCatalogTest.java           # Multi-course catalog & state isolation tests (4 tests)
 │       │   ├── CourseConcurrencyTest.java       # Virtual threads & barrier concurrency tests (3 tests)
 │       │   └── bdd/
 │       │       └── CourseWaitlistBddTest.java   # 9 BDD scenario test executions

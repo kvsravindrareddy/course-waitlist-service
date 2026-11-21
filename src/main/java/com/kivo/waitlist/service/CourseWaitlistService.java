@@ -59,7 +59,19 @@ public class CourseWaitlistService {
     public CourseWaitlistService(CourseOffering offering, PromotionPolicy promotionPolicy) {
         this.offering = Objects.requireNonNull(offering, "Offering must not be null.");
         this.promotionPolicy = Objects.requireNonNull(promotionPolicy, "PromotionPolicy must not be null.");
-        this.catalog.put(offering.getId(), new CourseOfferingState(offering, this.enrolled, this.waitlist));
+        this.catalog.put(offering.getId(), new CourseOfferingState(offering, new ArrayList<>(), new ArrayList<>()));
+    }
+
+    private void syncActiveStateToCatalog() {
+        if (offering != null) {
+            CourseOfferingState state = catalog.get(offering.getId());
+            if (state != null) {
+                state.getEnrolled().clear();
+                state.getEnrolled().addAll(this.enrolled);
+                state.getWaitlist().clear();
+                state.getWaitlist().addAll(this.waitlist);
+            }
+        }
     }
 
     private void initDefaultCatalog() {
@@ -124,25 +136,18 @@ public class CourseWaitlistService {
             if (target == null) {
                 throw new IllegalArgumentException("Course offering '" + cleanId + "' not found in catalog.");
             }
-            if (offering != null && !offering.getId().equals(cleanId)) {
-                // Save current state to previous offering in catalog
-                CourseOfferingState currState = catalog.get(offering.getId());
-                if (currState != null && currState.getEnrolled() != this.enrolled) {
-                    currState.getEnrolled().clear();
-                    currState.getEnrolled().addAll(this.enrolled);
-                    currState.getWaitlist().clear();
-                    currState.getWaitlist().addAll(this.waitlist);
-                }
+            if (offering != null && offering.getId().equals(cleanId)) {
+                return;
             }
+            // Save current offering state into catalog
+            syncActiveStateToCatalog();
+
+            // Switch to target offering
             this.offering = target.getOffering();
-            if (target.getEnrolled() != this.enrolled) {
-                this.enrolled.clear();
-                this.enrolled.addAll(target.getEnrolled());
-                this.waitlist.clear();
-                this.waitlist.addAll(target.getWaitlist());
-                // Relink target to this.enrolled and this.waitlist
-                catalog.put(cleanId, new CourseOfferingState(this.offering, this.enrolled, this.waitlist));
-            }
+            this.enrolled.clear();
+            this.enrolled.addAll(target.getEnrolled());
+            this.waitlist.clear();
+            this.waitlist.addAll(target.getWaitlist());
         } finally {
             lock.unlock();
         }
@@ -156,14 +161,12 @@ public class CourseWaitlistService {
         try {
             if (offering != null && offering.getId().equals(newOffering.getId())) {
                 this.offering = newOffering;
-                catalog.put(newOffering.getId(), new CourseOfferingState(newOffering, this.enrolled, this.waitlist));
+            }
+            CourseOfferingState existing = catalog.get(newOffering.getId());
+            if (existing != null) {
+                existing.setOffering(newOffering);
             } else {
-                CourseOfferingState existing = catalog.get(newOffering.getId());
-                if (existing != null) {
-                    existing.setOffering(newOffering);
-                } else {
-                    catalog.put(newOffering.getId(), new CourseOfferingState(newOffering, new ArrayList<>(), new ArrayList<>()));
-                }
+                catalog.put(newOffering.getId(), new CourseOfferingState(newOffering, new ArrayList<>(), new ArrayList<>()));
             }
         } finally {
             lock.unlock();
@@ -173,6 +176,7 @@ public class CourseWaitlistService {
     public List<OfferingSnapshot> getAllOfferings() {
         lock.lock();
         try {
+            syncActiveStateToCatalog();
             return catalog.keySet().stream()
                     .map(this::getSnapshot)
                     .collect(Collectors.toList());
@@ -204,8 +208,18 @@ public class CourseWaitlistService {
 
         lock.lock();
         try {
-            if (offeringId != null && !offeringId.trim().isEmpty() && !offeringId.trim().equals(offering.getId())) {
-                switchOffering(offeringId.trim());
+            if (offeringId != null && !offeringId.trim().isEmpty()) {
+                String cleanOfferingId = offeringId.trim();
+                if (!catalog.containsKey(cleanOfferingId)) {
+                    return EnrollmentResult.invalidRequest(
+                            cleanOfferingId,
+                            cleanId,
+                            "Course offering '" + cleanOfferingId + "' not found in catalog."
+                    );
+                }
+                if (!cleanOfferingId.equals(offering.getId())) {
+                    switchOffering(cleanOfferingId);
+                }
             }
 
             Learner learner = learners.get(cleanId);
@@ -238,6 +252,7 @@ public class CourseWaitlistService {
                 }
 
                 enrolled.add(cleanId);
+                syncActiveStateToCatalog();
                 return EnrollmentResult.enrolled(offering.getId(), cleanId, offering.getTitle());
             }
 
@@ -248,6 +263,7 @@ public class CourseWaitlistService {
             }
 
             waitlist.add(cleanId);
+            syncActiveStateToCatalog();
             int position = waitlist.size();
             return EnrollmentResult.waitlisted(offering.getId(), cleanId, offering.getCapacity(), position);
 
@@ -271,13 +287,20 @@ public class CourseWaitlistService {
 
         lock.lock();
         try {
-            if (offeringId != null && !offeringId.trim().isEmpty() && !offeringId.trim().equals(offering.getId())) {
-                switchOffering(offeringId.trim());
+            if (offeringId != null && !offeringId.trim().isEmpty()) {
+                String cleanOfferingId = offeringId.trim();
+                if (!catalog.containsKey(cleanOfferingId)) {
+                    return DropResult.invalidRequest("Course offering '" + cleanOfferingId + "' not found in catalog.");
+                }
+                if (!cleanOfferingId.equals(offering.getId())) {
+                    switchOffering(cleanOfferingId);
+                }
             }
 
             // Case 1: Dropping from waitlist
             if (waitlist.contains(cleanId)) {
                 waitlist.remove(cleanId);
+                syncActiveStateToCatalog();
                 return DropResult.droppedFromWaitlist(cleanId);
             }
 
@@ -291,6 +314,7 @@ public class CourseWaitlistService {
 
             // FIFO Promotion Scan
             String promotedId = promoteNextEligible();
+            syncActiveStateToCatalog();
 
             if (promotedId != null) {
                 return DropResult.droppedAndPromoted(cleanId, promotedId);
@@ -382,12 +406,25 @@ public class CourseWaitlistService {
     public void reset(CourseOffering newOffering) {
         lock.lock();
         try {
-            if (newOffering != null) {
-                this.offering = newOffering;
-                this.catalog.put(newOffering.getId(), new CourseOfferingState(newOffering, this.enrolled, this.waitlist));
-            }
             this.enrolled.clear();
             this.waitlist.clear();
+            if (newOffering != null) {
+                this.offering = newOffering;
+                CourseOfferingState state = catalog.get(newOffering.getId());
+                if (state != null) {
+                    state.setOffering(newOffering);
+                    state.getEnrolled().clear();
+                    state.getWaitlist().clear();
+                } else {
+                    catalog.put(newOffering.getId(), new CourseOfferingState(newOffering, new ArrayList<>(), new ArrayList<>()));
+                }
+            } else if (this.offering != null) {
+                CourseOfferingState state = catalog.get(this.offering.getId());
+                if (state != null) {
+                    state.getEnrolled().clear();
+                    state.getWaitlist().clear();
+                }
+            }
         } finally {
             lock.unlock();
         }

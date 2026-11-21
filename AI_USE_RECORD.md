@@ -106,3 +106,35 @@ The AI suggested enabling `spring.threads.virtual.enabled: true` in `application
 
 ### 4. Verification Evidence
 - Executed `./mvnw test`: All 32 tests passed including `testVirtualThreadContention` in 2.4 seconds under OpenJDK 25.0.5.1 and Spring Boot 4.1.2.
+
+---
+
+## Engineering Activity 6: Multi-Agent Review Routine (/boost) & Catalog State Synchronization
+
+### 1. Prompt Used
+> "Conduct an exhaustive multi-perspective code audit of CourseWaitlistService, OpenAPI controller, and concurrency models. Identify any subtle race conditions, contract drift, or state leakage across offerings, and verify against the assessment rubric."
+
+### 2. AI Response Summary
+The multi-agent review identified a subtle reference aliasing bug in `switchOffering()`:
+- `catalog.put(offering.getId(), new CourseOfferingState(offering, this.enrolled, this.waitlist))` shared list references with the service instance.
+- When switching between courses, `this.enrolled.clear()` emptied the previous offering's enrolled list due to aliasing.
+- Non-existent offering IDs in `enroll()` or `drop()` threw `IllegalArgumentException` instead of returning typed `EnrollmentResult.invalidRequest` / `DropResult.invalidRequest`.
+
+### 3. Review, Decision & Modifications
+- **Accepted**:
+  - Decoupled `catalog` internal lists: each `CourseOfferingState` now owns its own independent `ArrayList` instances.
+  - Introduced atomic `syncActiveStateToCatalog()` to snapshot the active offering state under `lock.lock()`.
+  - Updated `switchOffering()` to save active state before loading the target offering.
+  - Added domain guard returning `EnrollmentResult.invalidRequest` / `DropResult.invalidRequest` when an unknown offering ID is supplied.
+- **Enhanced**:
+  - Authored a dedicated test suite `CourseCatalogTest.java` verifying cross-course isolation and state preservation.
+
+### 4. Verification Evidence
+- Executed `CourseCatalogTest`:
+  ```
+  testSwitchOfferingPreservesEnrollmentsAndIsolatedRosters ... PASSED
+  testDirectEnrollmentAndDropWithOfferingId ... PASSED
+  testInvalidOfferingIdHandling ... PASSED
+  testRegisterCustomOffering ... PASSED
+  ```
+- Full suite test count expanded from 32 to 36 tests with 100% pass rate.
