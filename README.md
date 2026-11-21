@@ -24,6 +24,7 @@ cd /Users/veera/work/code/interview/course-waitlist-service
 ./mvnw spring-boot:run
 ```
 - **Interactive UI Dashboard**: [http://localhost:8080](http://localhost:8080)
+- **Manual Testing & Screenshot Evidence Guide**: [MANUAL_TESTING_GUIDE.md](file:///Users/veera/work/code/interview/course-waitlist-service/MANUAL_TESTING_GUIDE.md)
 - **Architecture & Sequence Flow Visualizer**: [http://localhost:8080/architecture.html](http://localhost:8080/architecture.html) (or open local [architecture.html](file:///Users/veera/work/code/interview/course-waitlist-service/architecture.html))
 - **OpenAPI 3.0 Specification**: [http://localhost:8080/openapi.yaml](http://localhost:8080/openapi.yaml) or [openapi.yaml](file:///Users/veera/work/code/interview/course-waitlist-service/openapi.yaml)
 - **Swagger UI Interactive API Docs**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
