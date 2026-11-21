@@ -4,6 +4,7 @@ info:
   description: |
     Thread-safe Course Enrollment, Drop, and FIFO Waitlist Promotion Service.
     Enforces capacity limits, prerequisite verification, and the Skip-and-Retain waitlist promotion policy.
+    Supports dynamic multi-course offerings with customizable capacity and prerequisites.
   version: 1.0.0
   contact:
     name: KiVO Engineering Team
@@ -18,12 +19,69 @@ paths:
     get:
       tags:
         - Waitlist
-      summary: Retrieve Course Offering Snapshot
-      description: Returns real-time capacity, enrolled learner IDs, available seats, and the FIFO waitlist.
+      summary: Retrieve Active Course Offering Snapshot
+      description: Returns real-time capacity, enrolled learner IDs, available seats, prerequisites, and the FIFO waitlist for the active offering.
       operationId: getOfferingSnapshot
       responses:
         '200':
           description: Current offering state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferingSnapshot'
+
+  /api/offerings:
+    get:
+      tags:
+        - Waitlist
+      summary: List All Course Offerings
+      description: Returns real-time snapshots for all course offerings in the catalog.
+      operationId: getAllOfferings
+      responses:
+        '200':
+          description: List of all course offerings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OfferingSnapshot'
+    post:
+      tags:
+        - Waitlist
+      summary: Create or Register Course Offering
+      description: Adds a new course offering with custom capacity and prerequisites to the catalog.
+      operationId: createOffering
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOfferingRequest'
+      responses:
+        '200':
+          description: Created offering snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferingSnapshot'
+
+  /api/offering/switch:
+    post:
+      tags:
+        - Waitlist
+      summary: Switch Active Course Offering
+      description: Sets the active course offering for subsequent enrollments and dashboard inspection.
+      operationId: switchOffering
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchOfferingRequest'
+      responses:
+        '200':
+          description: Switched offering snapshot
           content:
             application/json:
               schema:
@@ -162,6 +220,7 @@ components:
         - availableSeats
         - enrolledLearners
         - waitlist
+        - prerequisites
       properties:
         offeringId:
           type: string
@@ -188,6 +247,43 @@ components:
           items:
             type: string
           example: ["david", "eve"]
+        prerequisites:
+          type: array
+          items:
+            type: string
+          example: ["CS101"]
+
+    CreateOfferingRequest:
+      type: object
+      required:
+        - id
+        - title
+        - capacity
+      properties:
+        id:
+          type: string
+          example: "CS301"
+        title:
+          type: string
+          example: "Advanced Algorithms & Systems"
+        capacity:
+          type: integer
+          minimum: 1
+          example: 3
+        prerequisites:
+          type: array
+          items:
+            type: string
+          example: ["CS201", "CS101"]
+
+    SwitchOfferingRequest:
+      type: object
+      required:
+        - offeringId
+      properties:
+        offeringId:
+          type: string
+          example: "CS301"
 
     Learner:
       type: object
@@ -206,7 +302,7 @@ components:
           type: array
           items:
             type: string
-          example: ["CS101"]
+          example: ["CS101", "CS201"]
 
     RegisterLearnerRequest:
       type: object
@@ -224,7 +320,7 @@ components:
           type: array
           items:
             type: string
-          example: ["CS101", "MATH100"]
+          example: ["CS101", "MATH101"]
 
     EnrollRequest:
       type: object
@@ -234,6 +330,9 @@ components:
         learnerId:
           type: string
           example: "david"
+        offeringId:
+          type: string
+          example: "CS201"
 
     DropRequest:
       type: object
@@ -243,21 +342,24 @@ components:
         learnerId:
           type: string
           example: "alice"
+        offeringId:
+          type: string
+          example: "CS201"
 
     EnrollmentResult:
       type: object
       required:
         - status
         - message
+        - offeringId
       properties:
         status:
           $ref: '#/components/schemas/EnrollmentStatus'
         message:
           type: string
-          example: "Course is at capacity (2/2). Placed on waitlist at position #1."
+          example: "Successfully enrolled in offering 'CS201'."
         waitlistPosition:
           type: integer
-          nullable: true
           example: 1
         offeringId:
           type: string
@@ -277,14 +379,12 @@ components:
           $ref: '#/components/schemas/DropStatus'
         message:
           type: string
-          example: "Learner 'alice' dropped. Seat filled by waitlisted learner 'david'."
+          example: "Learner 'alice' dropped. Promoted waitlisted learner 'david'."
         droppedLearnerId:
           type: string
-          nullable: true
           example: "alice"
         promotedLearnerId:
           type: string
-          nullable: true
           example: "david"
         seatOpened:
           type: boolean
@@ -295,9 +395,9 @@ components:
       enum:
         - ENROLLED
         - WAITLISTED
+        - PREREQUISITE_NOT_MET
         - ALREADY_ENROLLED
         - ALREADY_WAITLISTED
-        - PREREQUISITE_NOT_MET
         - INVALID_REQUEST
 
     DropStatus:
@@ -311,10 +411,13 @@ components:
 
     ErrorResponse:
       type: object
+      required:
+        - error
+        - message
       properties:
         error:
           type: string
           example: "Bad Request"
         message:
           type: string
-          example: "Learner ID cannot be blank"
+          example: "Missing or invalid payload"

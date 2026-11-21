@@ -14,8 +14,13 @@ public class OfferingSnapshot {
     private final int availableSeats;
     private final List<String> enrolledLearners;
     private final List<String> waitlist;
+    private final List<String> prerequisites;
 
     public OfferingSnapshot(String offeringId, String title, int capacity, int enrolledCount, int availableSeats, List<String> enrolledLearners, List<String> waitlist) {
+        this(offeringId, title, capacity, enrolledCount, availableSeats, enrolledLearners, waitlist, Collections.emptyList());
+    }
+
+    public OfferingSnapshot(String offeringId, String title, int capacity, int enrolledCount, int availableSeats, List<String> enrolledLearners, List<String> waitlist, List<String> prerequisites) {
         this.offeringId = offeringId;
         this.title = title;
         this.capacity = capacity;
@@ -23,6 +28,7 @@ public class OfferingSnapshot {
         this.availableSeats = availableSeats;
         this.enrolledLearners = Collections.unmodifiableList(enrolledLearners);
         this.waitlist = Collections.unmodifiableList(waitlist);
+        this.prerequisites = prerequisites != null ? Collections.unmodifiableList(prerequisites) : Collections.emptyList();
     }
 
     public String getOfferingId() {
@@ -51,5 +57,9 @@ public class OfferingSnapshot {
 
     public List<String> getWaitlist() {
         return waitlist;
+    }
+
+    public List<String> getPrerequisites() {
+        return prerequisites;
     }
 }

@@ -28,6 +28,36 @@
             </div>
         </header>
 
+        <!-- Course Catalog & Switcher Bar -->
+        <section class="card course-switcher-card">
+            <div class="switcher-row">
+                <div class="switcher-left">
+                    <label for="course-offering-select" class="switcher-label">Select Course:</label>
+                    <select id="course-offering-select" class="form-input offering-dropdown">
+                        <!-- Populated dynamically with all courses from /api/offerings -->
+                    </select>
+                </div>
+                <div class="switcher-right">
+                    <button class="btn btn-secondary btn-sm" id="btn-toggle-new-course">+ Add Custom Course</button>
+                </div>
+            </div>
+
+            <!-- Expandable New Course Form -->
+            <form id="new-course-form" class="new-course-form" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border-color);">
+                <div style="font-weight:700; font-size:0.9rem; margin-bottom:8px;">Create New Course Offering</div>
+                <div class="form-row-4">
+                    <input type="text" id="new-course-id" class="form-input" placeholder="Course Code (e.g. AI101)" required>
+                    <input type="text" id="new-course-title" class="form-input" placeholder="Course Title (e.g. Intro to AI)" required>
+                    <input type="number" id="new-course-capacity" class="form-input" placeholder="Capacity" min="1" max="100" value="3" required>
+                    <input type="text" id="new-course-prereqs" class="form-input" placeholder="Prerequisites (e.g. CS101, MATH101)">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-new-course">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Create & Switch Course</button>
+                </div>
+            </form>
+        </section>
+
         <!-- Course Offering Hero Card -->
         <section class="card course-hero">
             <div class="course-meta">
@@ -36,7 +66,7 @@
                     <h2 id="course-title">Data Structures & Algorithms</h2>
                 </div>
                 <div class="course-tags">
-                    <span class="tag tag-prereq">Prerequisite: <strong id="course-prereq">CS101</strong></span>
+                    <span class="tag tag-prereq">Prerequisites: <strong id="course-prereq">CS101</strong></span>
                     <span class="tag tag-cap">Capacity: <strong id="course-capacity">2</strong></span>
                 </div>
             </div>
@@ -91,9 +121,9 @@
                         <select id="learner-select" class="form-input">
                             <option value="">-- Choose registered learner --</option>
                         </select>
-                        <label class="checkbox-row" title="If learner lacks CS101, automatically satisfies prerequisite before submitting enrollment">
+                        <label class="checkbox-row" title="If learner lacks active course prerequisites, automatically satisfies them before submitting enrollment">
                             <input type="checkbox" id="auto-fulfill-prereq" checked>
-                            <span>Auto-fulfill prerequisite (CS101) if missing</span>
+                            <span id="auto-fulfill-label">Auto-fulfill course prerequisites if missing</span>
                         </label>
                         <button type="submit" class="btn btn-primary btn-block">Enroll Selected Learner</button>
                     </form>
@@ -107,11 +137,20 @@
                             <input type="text" id="new-learner-id" class="form-input" placeholder="ID (e.g. grace)" required>
                             <input type="text" id="new-learner-name" class="form-input" placeholder="Full Name (e.g. Grace Hopper)" required>
                         </div>
-                        <label class="checkbox-row">
-                            <input type="checkbox" id="new-learner-prereq" checked>
-                            <span>Has completed prerequisite (CS101)</span>
-                        </label>
-                        <div style="display:flex; gap:8px;">
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label style="font-size:0.75rem; font-weight:700; color:var(--text-muted);">Completed Prerequisites:</label>
+                                <button type="button" class="btn btn-ghost btn-xs" id="btn-match-course-prereqs">Match Current Course</button>
+                            </div>
+                            <input type="text" id="new-learner-completed-courses" class="form-input" placeholder="e.g. CS101, MATH101">
+                            <div class="quick-chip-row" id="quick-prereq-chips">
+                                <span class="chip" onclick="addChipCourse('CS101')">+ CS101</span>
+                                <span class="chip" onclick="addChipCourse('CS201')">+ CS201</span>
+                                <span class="chip" onclick="addChipCourse('MATH101')">+ MATH101</span>
+                                <span class="chip" onclick="addChipCourse('None')" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;">Clear</span>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:4px;">
                             <button type="submit" class="btn btn-primary" style="flex:1;">Enroll New</button>
                             <button type="button" id="btn-register-only" class="btn btn-secondary" style="flex:1;">Register Only</button>
                         </div>

@@ -1,33 +1,53 @@
 /**
  * Client-side Controller for Course Waitlist Fullstack Application
+ * Supports dynamic multi-course offering catalog, customizable prerequisites, and flexible enrollment.
  */
 
 const API = {
     getOffering: () => fetch('/api/offering').then(r => r.json()),
+    getAllOfferings: () => fetch('/api/offerings').then(r => r.json()),
+    createOffering: (offering) => fetch('/api/offerings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(offering)
+    }).then(r => r.json()),
+    switchOffering: (offeringId) => fetch('/api/offering/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ offeringId })
+    }).then(r => r.json()),
     getLearners: () => fetch('/api/learners').then(r => r.json()),
     registerLearner: (learner) => fetch('/api/learners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(learner)
     }).then(r => r.json()),
-    enroll: (learnerId) => fetch('/api/enroll', {
+    enroll: (learnerId, offeringId) => fetch('/api/enroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ learnerId })
+        body: JSON.stringify({ learnerId, offeringId })
     }).then(r => r.json()),
-    drop: (learnerId) => fetch('/api/drop', {
+    drop: (learnerId, offeringId) => fetch('/api/drop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ learnerId })
+        body: JSON.stringify({ learnerId, offeringId })
     }).then(r => r.json()),
     reset: () => fetch('/api/reset', { method: 'POST' }).then(r => r.json())
 };
 
 let learnersCache = {};
+let currentOffering = null;
+let offeringsCache = [];
 
 // DOM Elements
+const elCourseOfferingSelect = document.getElementById('course-offering-select');
+const elBtnToggleNewCourse = document.getElementById('btn-toggle-new-course');
+const elNewCourseForm = document.getElementById('new-course-form');
+const elBtnCancelNewCourse = document.getElementById('btn-cancel-new-course');
+
 const elCourseId = document.getElementById('course-id');
 const elCourseTitle = document.getElementById('course-title');
+const elCoursePrereq = document.getElementById('course-prereq');
 const elCourseCapacity = document.getElementById('course-capacity');
 const elEnrolledCount = document.getElementById('enrolled-count');
 const elCapacityTotal = document.getElementById('capacity-total');
@@ -50,19 +70,28 @@ const elAutoFulfill = document.getElementById('auto-fulfill-prereq');
 const elNewForm = document.getElementById('new-learner-form');
 const elNewId = document.getElementById('new-learner-id');
 const elNewName = document.getElementById('new-learner-name');
-const elNewPrereq = document.getElementById('new-learner-prereq');
+const elNewCompletedCourses = document.getElementById('new-learner-completed-courses');
 const elBtnRegisterOnly = document.getElementById('btn-register-only');
+const elBtnMatchCoursePrereqs = document.getElementById('btn-match-course-prereqs');
 
 // ── Initial Load & Refresh ──────────────────────────────────────────────────
 
 async function loadData() {
     try {
-        const [offering, learners] = await Promise.all([API.getOffering(), API.getLearners()]);
+        const [offering, offerings, learners] = await Promise.all([
+            API.getOffering(),
+            API.getAllOfferings(),
+            API.getLearners()
+        ]);
+
+        currentOffering = offering;
+        offeringsCache = offerings || [];
 
         // Cache learners by ID
         learnersCache = {};
         learners.forEach(l => { learnersCache[l.id] = l; });
 
+        renderCourseSelector(offerings, offering.offeringId);
         renderCourseHero(offering);
         renderEnrolledList(offering.enrolledLearners);
         renderWaitlist(offering.waitlist);
@@ -72,9 +101,27 @@ async function loadData() {
     }
 }
 
+function renderCourseSelector(offerings, activeId) {
+    elCourseOfferingSelect.innerHTML = '';
+    offerings.forEach(off => {
+        const opt = document.createElement('option');
+        opt.value = off.offeringId;
+        const prereqText = (off.prerequisites && off.prerequisites.length > 0)
+            ? off.prerequisites.join(', ')
+            : 'None';
+        opt.textContent = `${off.offeringId} — ${off.title} [Prereq: ${prereqText} | Cap: ${off.capacity}]`;
+        if (off.offeringId === activeId) {
+            opt.selected = true;
+        }
+        elCourseOfferingSelect.appendChild(opt);
+    });
+}
+
 function renderCourseHero(offering) {
     elCourseId.textContent = offering.offeringId;
     elCourseTitle.textContent = offering.title;
+    const prereqList = offering.prerequisites || [];
+    elCoursePrereq.textContent = prereqList.length > 0 ? prereqList.join(', ') : 'None';
     elCourseCapacity.textContent = offering.capacity;
     elCapacityTotal.textContent = offering.capacity;
     elEnrolledCount.textContent = offering.enrolledCount;
@@ -104,7 +151,7 @@ function renderEnrolledList(enrolledIds) {
     }
 
     enrolledIds.forEach((id, idx) => {
-        const learner = learnersCache[id] || { id, name: id, completedCourses: ['CS101'] };
+        const learner = learnersCache[id] || { id, name: id, completedCourses: [] };
         const card = document.createElement('div');
         card.className = 'student-card';
         card.innerHTML = `
@@ -114,7 +161,7 @@ function renderEnrolledList(enrolledIds) {
                     <span class="student-name">${learner.name}</span>
                 </div>
                 <span class="student-id">${learner.id}</span>
-                <span class="student-prereqs">✓ Prereqs satisfied</span>
+                <span class="student-prereqs">✓ Prereqs satisfied: [${(learner.completedCourses || []).join(', ') || 'None'}]</span>
             </div>
             <button class="btn btn-danger btn-sm" onclick="handleDrop('${id}')">Drop</button>
         `;
@@ -134,9 +181,14 @@ function renderWaitlist(waitlistIds) {
         return;
     }
 
+    const requiredPrereqs = (currentOffering && currentOffering.prerequisites) || [];
+
     waitlistIds.forEach((id, idx) => {
         const learner = learnersCache[id] || { id, name: id, completedCourses: [] };
-        const hasCS101 = (learner.completedCourses || []).includes('CS101');
+        const completed = learner.completedCourses || [];
+        const missing = requiredPrereqs.filter(p => !completed.includes(p));
+        const isEligible = missing.length === 0;
+
         const card = document.createElement('div');
         card.className = 'student-card';
         card.innerHTML = `
@@ -146,12 +198,12 @@ function renderWaitlist(waitlistIds) {
                     <span class="student-name">${learner.name}</span>
                 </div>
                 <span class="student-id">${learner.id}</span>
-                <span class="student-prereqs ${hasCS101 ? '' : 'missing'}">
-                    ${hasCS101 ? '✓ Eligible for promotion' : '⚠ Missing CS101 (Skip & Retain)'}
+                <span class="student-prereqs ${isEligible ? '' : 'missing'}">
+                    ${isEligible ? '✓ Eligible for promotion' : `⚠ Missing: ${missing.join(', ')} (Skip & Retain)`}
                 </span>
             </div>
             <div style="display:flex; gap:6px;">
-                ${!hasCS101 ? `<button class="btn btn-primary btn-xs" onclick="togglePrereq('${id}', true)" title="Grant CS101 and allow promotion">+ CS101</button>` : ''}
+                ${!isEligible ? `<button class="btn btn-primary btn-xs" onclick="fulfillCurrentPrereqs('${id}')" title="Grant required prerequisites to allow promotion">+ Prereqs</button>` : ''}
                 <button class="btn btn-secondary btn-sm" onclick="handleDrop('${id}')">Remove</button>
             </div>
         `;
@@ -164,8 +216,13 @@ function renderPersonas(learners, offering) {
     const previousSelection = elLearnerSelect.value;
     elLearnerSelect.innerHTML = '<option value="">-- Choose registered learner --</option>';
 
+    const requiredPrereqs = offering.prerequisites || [];
+
     learners.forEach(l => {
-        const hasCS101 = (l.completedCourses || []).includes('CS101');
+        const completed = l.completedCourses || [];
+        const missing = requiredPrereqs.filter(p => !completed.includes(p));
+        const isEligible = missing.length === 0;
+
         const isEnrolled = offering.enrolledLearners.includes(l.id);
         const isWaitlisted = offering.waitlist.includes(l.id);
         const waitlistPos = isWaitlisted ? offering.waitlist.indexOf(l.id) + 1 : 0;
@@ -173,7 +230,7 @@ function renderPersonas(learners, offering) {
         // Dropdown Option
         const opt = document.createElement('option');
         opt.value = l.id;
-        opt.textContent = `${l.name} (${l.id}) — ${hasCS101 ? '✓ CS101 Eligible' : '⚠ Missing CS101'}`;
+        opt.textContent = `${l.name} (${l.id}) — ${isEligible ? '✓ Eligible' : `⚠ Missing: ${missing.join(', ')}`}`;
         elLearnerSelect.appendChild(opt);
 
         // Persona Row Item
@@ -187,9 +244,9 @@ function renderPersonas(learners, offering) {
             statusBadge = `<span class="rank-tag" style="background:#fef3c7; color:#b45309;">Waitlist #${waitlistPos}</span>`;
         }
 
-        const prereqBadge = hasCS101
-            ? '<span class="student-prereqs">✓ CS101 Satisfied</span>'
-            : '<span class="student-prereqs missing">⚠ Missing CS101</span>';
+        const prereqBadge = isEligible
+            ? `<span class="student-prereqs">✓ Eligible [${completed.join(', ') || 'None'}]</span>`
+            : `<span class="student-prereqs missing">⚠ Missing: ${missing.join(', ')} (Has: [${completed.join(', ') || 'None'}])</span>`;
 
         item.innerHTML = `
             <div style="flex:1;">
@@ -203,10 +260,11 @@ function renderPersonas(learners, offering) {
                 </div>
             </div>
             <div class="persona-actions">
-                ${!hasCS101
-                    ? `<button class="btn btn-secondary btn-xs" onclick="togglePrereq('${l.id}', true)" title="Grant CS101 to satisfy prerequisite">+ CS101</button>`
-                    : `<button class="btn btn-ghost btn-xs" onclick="togglePrereq('${l.id}', false)" title="Revoke CS101 to test prerequisite failure">- CS101</button>`
+                ${!isEligible
+                    ? `<button class="btn btn-secondary btn-xs" onclick="fulfillCurrentPrereqs('${l.id}')" title="Fulfill all required course prerequisites">+ Prereqs</button>`
+                    : `<button class="btn btn-ghost btn-xs" onclick="clearLearnerPrereqs('${l.id}')" title="Clear prerequisites to test rejection">Clear</button>`
                 }
+                <button class="btn btn-ghost btn-xs" onclick="promptCustomPrereqs('${l.id}')" title="Set custom list of completed courses">Edit</button>
                 ${isEnrolled
                     ? `<button class="btn btn-danger btn-xs" onclick="handleDrop('${l.id}')">Drop</button>`
                     : (isWaitlisted
@@ -224,28 +282,128 @@ function renderPersonas(learners, offering) {
     }
 }
 
-// ── Prerequisite Management ────────────────────────────────────────────────
+// ── Course Catalog Switching & Creation ─────────────────────────────────────
 
-async function togglePrereq(learnerId, grant) {
+elCourseOfferingSelect.addEventListener('change', async (e) => {
+    const offeringId = e.target.value;
+    if (!offeringId) return;
+    try {
+        const snap = await API.switchOffering(offeringId);
+        logAudit('COURSE_SWITCH', `Switched active course to ${snap.offeringId} (${snap.title})`, 'badge-info');
+        await loadData();
+    } catch (err) {
+        logAudit('ERROR', `Failed to switch course: ${err.message}`, 'badge-danger');
+    }
+});
+
+elBtnToggleNewCourse.addEventListener('click', () => {
+    const isHidden = elNewCourseForm.style.display === 'none';
+    elNewCourseForm.style.display = isHidden ? 'block' : 'none';
+    elBtnToggleNewCourse.textContent = isHidden ? '✕ Close Form' : '+ Add Custom Course';
+});
+
+elBtnCancelNewCourse.addEventListener('click', () => {
+    elNewCourseForm.style.display = 'none';
+    elBtnToggleNewCourse.textContent = '+ Add Custom Course';
+});
+
+elNewCourseForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('new-course-id').value.trim().toUpperCase();
+    const title = document.getElementById('new-course-title').value.trim();
+    const cap = parseInt(document.getElementById('new-course-capacity').value, 10);
+    const prereqsRaw = document.getElementById('new-course-prereqs').value.trim();
+
+    const prerequisites = prereqsRaw ? prereqsRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
+
+    if (!id || !title || !cap) {
+        alert('Please fill out Course Code, Title, and Capacity.');
+        return;
+    }
+
+    try {
+        logAudit('CREATE_COURSE', `Creating new course offering ${id}: ${title} (Capacity: ${cap}, Prerequisites: [${prerequisites.join(', ')}])...`, 'badge-info');
+        await API.createOffering({ id, title, capacity: cap, prerequisites });
+        elNewCourseForm.reset();
+        elNewCourseForm.style.display = 'none';
+        elBtnToggleNewCourse.textContent = '+ Add Custom Course';
+        await loadData();
+    } catch (err) {
+        logAudit('ERROR', `Failed to create course: ${err.message}`, 'badge-danger');
+    }
+});
+
+// ── Dynamic Prerequisite Helpers ───────────────────────────────────────────
+
+function addChipCourse(courseCode) {
+    if (courseCode === 'None') {
+        elNewCompletedCourses.value = '';
+        return;
+    }
+    const current = elNewCompletedCourses.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    if (!current.includes(courseCode)) {
+        current.push(courseCode);
+    }
+    elNewCompletedCourses.value = current.join(', ');
+}
+
+if (elBtnMatchCoursePrereqs) {
+    elBtnMatchCoursePrereqs.addEventListener('click', () => {
+        if (currentOffering && currentOffering.prerequisites) {
+            elNewCompletedCourses.value = currentOffering.prerequisites.join(', ');
+        }
+    });
+}
+
+async function fulfillCurrentPrereqs(learnerId) {
+    const learner = learnersCache[learnerId];
+    if (!learner || !currentOffering) return;
+
+    const currentCourses = new Set(learner.completedCourses || []);
+    (currentOffering.prerequisites || []).forEach(p => currentCourses.add(p));
+
+    await API.registerLearner({
+        id: learner.id,
+        name: learner.name,
+        completedCourses: Array.from(currentCourses)
+    });
+    logAudit('PREREQ_GRANT', `Granted prerequisites [${(currentOffering.prerequisites || []).join(', ')}] to ${learner.name} (${learner.id}).`, 'badge-info');
+    await loadData();
+}
+
+async function clearLearnerPrereqs(learnerId) {
     const learner = learnersCache[learnerId];
     if (!learner) return;
 
-    try {
-        const completedCourses = grant ? ['CS101'] : [];
-        await API.registerLearner({
-            id: learner.id,
-            name: learner.name,
-            completedCourses
-        });
-        logAudit('PREREQ_UPDATE', `${grant ? '✓ Granted' : '✗ Revoked'} prerequisite CS101 for ${learner.name} (${learner.id}).`, 'badge-info');
-        await loadData();
-    } catch (err) {
-        logAudit('ERROR', `Failed to update prerequisite: ${err.message}`, 'badge-danger');
-    }
+    await API.registerLearner({
+        id: learner.id,
+        name: learner.name,
+        completedCourses: []
+    });
+    logAudit('PREREQ_CLEAR', `Cleared prerequisites for ${learner.name} (${learner.id}).`, 'badge-info');
+    await loadData();
+}
+
+async function promptCustomPrereqs(learnerId) {
+    const learner = learnersCache[learnerId];
+    if (!learner) return;
+
+    const current = (learner.completedCourses || []).join(', ');
+    const input = prompt(`Enter completed courses for ${learner.name} (comma-separated):`, current);
+    if (input === null) return;
+
+    const completedCourses = input.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    await API.registerLearner({
+        id: learner.id,
+        name: learner.name,
+        completedCourses
+    });
+    logAudit('PREREQ_UPDATE', `Updated ${learner.name}'s completed courses to: [${completedCourses.join(', ')}].`, 'badge-info');
+    await loadData();
 }
 
 async function grantAndEnroll(learnerId) {
-    await togglePrereq(learnerId, true);
+    await fulfillCurrentPrereqs(learnerId);
     await handleEnroll(learnerId);
 }
 
@@ -254,13 +412,13 @@ async function grantAndEnroll(learnerId) {
 async function handleEnroll(learnerId) {
     if (!learnerId) return;
     try {
-        const res = await API.enroll(learnerId);
+        const res = await API.enroll(learnerId, currentOffering ? currentOffering.offeringId : null);
         let badgeClass = 'badge-success';
         let msg = res.message;
 
         if (res.status === 'PREREQUISITE_NOT_MET') {
             badgeClass = 'badge-danger';
-            msg = `${res.message} <button class="btn btn-primary btn-xs" style="margin-left:8px;" onclick="grantAndEnroll('${learnerId}')">+ Grant CS101 & Retry</button>`;
+            msg = `${res.message} <button class="btn btn-primary btn-xs" style="margin-left:8px;" onclick="grantAndEnroll('${learnerId}')">+ Grant Prereqs & Retry</button>`;
         } else if (res.status === 'WAITLISTED') {
             badgeClass = 'badge-info';
         } else if (res.status && res.status.startsWith('ALREADY_')) {
@@ -277,7 +435,7 @@ async function handleEnroll(learnerId) {
 async function handleDrop(learnerId) {
     if (!learnerId) return;
     try {
-        const res = await API.drop(learnerId);
+        const res = await API.drop(learnerId, currentOffering ? currentOffering.offeringId : null);
         let badgeClass = 'badge-warning';
         if (res.status === 'DROPPED_AND_PROMOTED') badgeClass = 'badge-info';
         else if (res.status === 'NOT_ENROLLED') badgeClass = 'badge-danger';
@@ -346,14 +504,26 @@ elForm.addEventListener('submit', async (e) => {
 
     const autoFulfill = elAutoFulfill && elAutoFulfill.checked;
     const learner = learnersCache[id];
+    const requiredPrereqs = (currentOffering && currentOffering.prerequisites) || [];
 
-    if (autoFulfill && learner && !(learner.completedCourses || []).includes('CS101')) {
-        logAudit('PREREQ_GRANT', `Auto-granting prerequisite CS101 to ${learner.name} (${learner.id}) before enrollment...`, 'badge-info');
-        await API.registerLearner({
-            id: learner.id,
-            name: learner.name,
-            completedCourses: ['CS101']
+    if (autoFulfill && learner && requiredPrereqs.length > 0) {
+        const currentCourses = new Set(learner.completedCourses || []);
+        let updated = false;
+        requiredPrereqs.forEach(p => {
+            if (!currentCourses.has(p)) {
+                currentCourses.add(p);
+                updated = true;
+            }
         });
+
+        if (updated) {
+            logAudit('PREREQ_GRANT', `Auto-granting required prerequisites [${requiredPrereqs.join(', ')}] to ${learner.name} before enrollment...`, 'badge-info');
+            await API.registerLearner({
+                id: learner.id,
+                name: learner.name,
+                completedCourses: Array.from(currentCourses)
+            });
+        }
     }
 
     await handleEnroll(id);
@@ -364,33 +534,35 @@ elNewForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = elNewId.value.trim().toLowerCase();
     const name = elNewName.value.trim();
-    const hasPrereq = elNewPrereq.checked;
+    const coursesRaw = elNewCompletedCourses.value.trim();
+    const completedCourses = coursesRaw ? coursesRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
 
     if (!id || !name) {
         alert('Please provide both Learner ID and Full Name.');
         return;
     }
 
-    logAudit('REGISTER', `Registering new learner: ${name} (${id}) with completed prerequisites: [${hasPrereq ? 'CS101' : 'None'}]...`, 'badge-info');
+    logAudit('REGISTER', `Registering new learner: ${name} (${id}) with completed courses: [${completedCourses.join(', ')}]...`, 'badge-info');
     await API.registerLearner({
         id,
         name,
-        completedCourses: hasPrereq ? ['CS101'] : []
+        completedCourses
     });
 
-    logAudit('ENROLL', `Submitting enrollment request for new learner ${name} (${id})...`, 'badge-info');
+    logAudit('ENROLL', `Submitting enrollment request for ${name} (${id}) into active course ${currentOffering ? currentOffering.offeringId : ''}...`, 'badge-info');
     await handleEnroll(id);
 
     elNewId.value = '';
     elNewName.value = '';
-    elNewPrereq.checked = true;
+    elNewCompletedCourses.value = '';
 });
 
 // 3. Register Only Button
 elBtnRegisterOnly.addEventListener('click', async () => {
     const id = elNewId.value.trim().toLowerCase();
     const name = elNewName.value.trim();
-    const hasPrereq = elNewPrereq.checked;
+    const coursesRaw = elNewCompletedCourses.value.trim();
+    const completedCourses = coursesRaw ? coursesRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
 
     if (!id || !name) {
         alert('Please provide both Learner ID and Full Name.');
@@ -400,21 +572,21 @@ elBtnRegisterOnly.addEventListener('click', async () => {
     await API.registerLearner({
         id,
         name,
-        completedCourses: hasPrereq ? ['CS101'] : []
+        completedCourses
     });
-    logAudit('REGISTER', `✓ Successfully registered new learner: ${name} (${id}). Available in list.`, 'badge-success');
+    logAudit('REGISTER', `✓ Successfully registered new learner: ${name} (${id}) with courses [${completedCourses.join(', ')}].`, 'badge-success');
     await loadData();
     elLearnerSelect.value = id;
 
     elNewId.value = '';
     elNewName.value = '';
-    elNewPrereq.checked = true;
+    elNewCompletedCourses.value = '';
 });
 
 // 4. Header Reset & Clear Log
 elBtnReset.addEventListener('click', async () => {
     await API.reset();
-    logAudit('RESET', 'Course offering and waitlist state reset to initial baseline.', 'badge-warning');
+    logAudit('RESET', 'Course offering and waitlist state reset to default baseline.', 'badge-warning');
     await loadData();
 });
 

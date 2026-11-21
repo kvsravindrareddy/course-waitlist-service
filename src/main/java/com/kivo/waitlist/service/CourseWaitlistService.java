@@ -10,9 +10,27 @@ import java.util.stream.Collectors;
 
 /**
  * Thread-safe business service managing enrollment, drop, and FIFO waitlist promotion.
+ * Supports multiple course offerings with dynamic catalog selection.
  */
 @Service
 public class CourseWaitlistService {
+
+    public static class CourseOfferingState {
+        private CourseOffering offering;
+        private final List<String> enrolled;
+        private final List<String> waitlist;
+
+        public CourseOfferingState(CourseOffering offering, List<String> enrolled, List<String> waitlist) {
+            this.offering = Objects.requireNonNull(offering, "Offering cannot be null");
+            this.enrolled = enrolled != null ? enrolled : new ArrayList<>();
+            this.waitlist = waitlist != null ? waitlist : new ArrayList<>();
+        }
+
+        public CourseOffering getOffering() { return offering; }
+        public void setOffering(CourseOffering offering) { this.offering = offering; }
+        public List<String> getEnrolled() { return enrolled; }
+        public List<String> getWaitlist() { return waitlist; }
+    }
 
     private CourseOffering offering;
     private final PromotionPolicy promotionPolicy;
@@ -23,11 +41,14 @@ public class CourseWaitlistService {
     private final List<String> enrolled = new ArrayList<>();
     private final List<String> waitlist = new ArrayList<>();
 
+    private final Map<String, CourseOfferingState> catalog = new LinkedHashMap<>();
+
     public CourseWaitlistService() {
         this(
                 new CourseOffering("CS201", "Data Structures & Algorithms", 2, Set.of("CS101")),
                 PromotionPolicy.SKIP_AND_RETAIN
         );
+        initDefaultCatalog();
         initDefaultLearners();
     }
 
@@ -38,15 +59,24 @@ public class CourseWaitlistService {
     public CourseWaitlistService(CourseOffering offering, PromotionPolicy promotionPolicy) {
         this.offering = Objects.requireNonNull(offering, "Offering must not be null.");
         this.promotionPolicy = Objects.requireNonNull(promotionPolicy, "PromotionPolicy must not be null.");
+        this.catalog.put(offering.getId(), new CourseOfferingState(offering, this.enrolled, this.waitlist));
+    }
+
+    private void initDefaultCatalog() {
+        registerOffering(new CourseOffering("CS201", "Data Structures & Algorithms", 2, Set.of("CS101")));
+        registerOffering(new CourseOffering("CS301", "Advanced Algorithms & Systems", 3, Set.of("CS201", "CS101")));
+        registerOffering(new CourseOffering("AI101", "Artificial Intelligence & ML", 2, Set.of("CS101", "MATH101")));
+        registerOffering(new CourseOffering("MATH201", "Linear Algebra & Calculus", 2, Set.of("MATH101")));
+        registerOffering(new CourseOffering("WEB101", "Fullstack Web Systems", 3, Collections.emptySet()));
     }
 
     private void initDefaultLearners() {
-        registerLearner(new Learner("alice", "Alice Chen", Set.of("CS101")));
-        registerLearner(new Learner("bob", "Bob Smith", Set.of("CS101")));
-        registerLearner(new Learner("carol", "Carol Danvers", Collections.emptySet())); // Missing CS101
+        registerLearner(new Learner("alice", "Alice Chen", Set.of("CS101", "CS201")));
+        registerLearner(new Learner("bob", "Bob Smith", Set.of("CS101", "MATH101")));
+        registerLearner(new Learner("carol", "Carol Danvers", Collections.emptySet()));
         registerLearner(new Learner("david", "David Miller", Set.of("CS101")));
-        registerLearner(new Learner("eve", "Eve Johnson", Set.of("CS101")));
-        registerLearner(new Learner("frank", "Frank Wright", Collections.emptySet())); // Missing CS101
+        registerLearner(new Learner("eve", "Eve Johnson", Set.of("CS101", "MATH101", "CS201")));
+        registerLearner(new Learner("frank", "Frank Wright", Collections.emptySet()));
     }
 
     public void registerLearner(Learner learner) {
@@ -69,6 +99,88 @@ public class CourseWaitlistService {
         return offering;
     }
 
+    public CourseOffering getOffering(String offeringId) {
+        lock.lock();
+        try {
+            CourseOfferingState state = catalog.get(offeringId);
+            return state != null ? state.getOffering() : null;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public String getActiveOfferingId() {
+        return offering != null ? offering.getId() : null;
+    }
+
+    public void switchOffering(String offeringId) {
+        if (offeringId == null || offeringId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Offering ID must be provided.");
+        }
+        lock.lock();
+        try {
+            String cleanId = offeringId.trim();
+            CourseOfferingState target = catalog.get(cleanId);
+            if (target == null) {
+                throw new IllegalArgumentException("Course offering '" + cleanId + "' not found in catalog.");
+            }
+            if (offering != null && !offering.getId().equals(cleanId)) {
+                // Save current state to previous offering in catalog
+                CourseOfferingState currState = catalog.get(offering.getId());
+                if (currState != null && currState.getEnrolled() != this.enrolled) {
+                    currState.getEnrolled().clear();
+                    currState.getEnrolled().addAll(this.enrolled);
+                    currState.getWaitlist().clear();
+                    currState.getWaitlist().addAll(this.waitlist);
+                }
+            }
+            this.offering = target.getOffering();
+            if (target.getEnrolled() != this.enrolled) {
+                this.enrolled.clear();
+                this.enrolled.addAll(target.getEnrolled());
+                this.waitlist.clear();
+                this.waitlist.addAll(target.getWaitlist());
+                // Relink target to this.enrolled and this.waitlist
+                catalog.put(cleanId, new CourseOfferingState(this.offering, this.enrolled, this.waitlist));
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void registerOffering(CourseOffering newOffering) {
+        if (newOffering == null) {
+            throw new IllegalArgumentException("Offering cannot be null.");
+        }
+        lock.lock();
+        try {
+            if (offering != null && offering.getId().equals(newOffering.getId())) {
+                this.offering = newOffering;
+                catalog.put(newOffering.getId(), new CourseOfferingState(newOffering, this.enrolled, this.waitlist));
+            } else {
+                CourseOfferingState existing = catalog.get(newOffering.getId());
+                if (existing != null) {
+                    existing.setOffering(newOffering);
+                } else {
+                    catalog.put(newOffering.getId(), new CourseOfferingState(newOffering, new ArrayList<>(), new ArrayList<>()));
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public List<OfferingSnapshot> getAllOfferings() {
+        lock.lock();
+        try {
+            return catalog.keySet().stream()
+                    .map(this::getSnapshot)
+                    .collect(Collectors.toList());
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public PromotionPolicy getPromotionPolicy() {
         return promotionPolicy;
     }
@@ -76,9 +188,13 @@ public class CourseWaitlistService {
     // ── Core Enrollment Method ────────────────────────────────────────────────
 
     public EnrollmentResult enroll(String learnerId) {
+        return enroll(null, learnerId);
+    }
+
+    public EnrollmentResult enroll(String offeringId, String learnerId) {
         if (learnerId == null || learnerId.trim().isEmpty()) {
             return EnrollmentResult.invalidRequest(
-                    offering.getId(),
+                    offering != null ? offering.getId() : null,
                     null,
                     "Learner ID must be a non-empty string."
             );
@@ -88,6 +204,10 @@ public class CourseWaitlistService {
 
         lock.lock();
         try {
+            if (offeringId != null && !offeringId.trim().isEmpty() && !offeringId.trim().equals(offering.getId())) {
+                switchOffering(offeringId.trim());
+            }
+
             Learner learner = learners.get(cleanId);
             if (learner == null) {
                 return EnrollmentResult.invalidRequest(
@@ -113,7 +233,7 @@ public class CourseWaitlistService {
             // 3. Case A: Available Capacity
             if (enrolled.size() < offering.getCapacity()) {
                 if (!isEligible) {
-                    String missing = getMissingPrerequisites(learner);
+                    String missing = getMissingPrerequisites(learner, offering);
                     return EnrollmentResult.prerequisiteNotMet(offering.getId(), cleanId, missing, false);
                 }
 
@@ -123,7 +243,7 @@ public class CourseWaitlistService {
 
             // 4. Case B: Full Capacity -> Waitlist
             if (!isEligible) {
-                String missing = getMissingPrerequisites(learner);
+                String missing = getMissingPrerequisites(learner, offering);
                 return EnrollmentResult.prerequisiteNotMet(offering.getId(), cleanId, missing, true);
             }
 
@@ -139,6 +259,10 @@ public class CourseWaitlistService {
     // ── Core Drop Method ──────────────────────────────────────────────────────
 
     public DropResult drop(String learnerId) {
+        return drop(null, learnerId);
+    }
+
+    public DropResult drop(String offeringId, String learnerId) {
         if (learnerId == null || learnerId.trim().isEmpty()) {
             return DropResult.invalidRequest("Learner ID must be a non-empty string.");
         }
@@ -147,6 +271,10 @@ public class CourseWaitlistService {
 
         lock.lock();
         try {
+            if (offeringId != null && !offeringId.trim().isEmpty() && !offeringId.trim().equals(offering.getId())) {
+                switchOffering(offeringId.trim());
+            }
+
             // Case 1: Dropping from waitlist
             if (waitlist.contains(cleanId)) {
                 waitlist.remove(cleanId);
@@ -191,7 +319,7 @@ public class CourseWaitlistService {
         return null;
     }
 
-    private String getMissingPrerequisites(Learner learner) {
+    private String getMissingPrerequisites(Learner learner, CourseOffering offering) {
         Set<String> missing = new TreeSet<>(offering.getPrerequisites());
         missing.removeAll(learner.getCompletedCourses());
         return String.join(", ", missing);
@@ -213,7 +341,38 @@ public class CourseWaitlistService {
                     enrolledCopy.size(),
                     available,
                     enrolledCopy,
-                    waitlistCopy
+                    waitlistCopy,
+                    new ArrayList<>(offering.getPrerequisites())
+            );
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public OfferingSnapshot getSnapshot(String offeringId) {
+        lock.lock();
+        try {
+            if (offeringId == null || offeringId.trim().isEmpty() || (offering != null && offering.getId().equals(offeringId.trim()))) {
+                return getSnapshot();
+            }
+            CourseOfferingState state = catalog.get(offeringId.trim());
+            if (state == null) {
+                throw new NoSuchElementException("Course offering '" + offeringId + "' not found.");
+            }
+            CourseOffering off = state.getOffering();
+            List<String> enrolledCopy = new ArrayList<>(state.getEnrolled());
+            List<String> waitlistCopy = new ArrayList<>(state.getWaitlist());
+            int available = Math.max(0, off.getCapacity() - enrolledCopy.size());
+
+            return new OfferingSnapshot(
+                    off.getId(),
+                    off.getTitle(),
+                    off.getCapacity(),
+                    enrolledCopy.size(),
+                    available,
+                    enrolledCopy,
+                    waitlistCopy,
+                    new ArrayList<>(off.getPrerequisites())
             );
         } finally {
             lock.unlock();
@@ -225,6 +384,7 @@ public class CourseWaitlistService {
         try {
             if (newOffering != null) {
                 this.offering = newOffering;
+                this.catalog.put(newOffering.getId(), new CourseOfferingState(newOffering, this.enrolled, this.waitlist));
             }
             this.enrolled.clear();
             this.waitlist.clear();

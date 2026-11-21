@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,36 @@ public class WaitlistApiController implements WaitlistApi {
     public ResponseEntity<OfferingSnapshot> getOfferingSnapshot() {
         com.kivo.waitlist.model.OfferingSnapshot domainSnap = waitlistService.getSnapshot();
         return ResponseEntity.ok(mapSnapshot(domainSnap));
+    }
+
+    @Override
+    public ResponseEntity<List<OfferingSnapshot>> getAllOfferings() {
+        List<OfferingSnapshot> list = waitlistService.getAllOfferings().stream()
+                .map(this::mapSnapshot)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(list);
+    }
+
+    @Override
+    public ResponseEntity<OfferingSnapshot> createOffering(CreateOfferingRequest request) {
+        Set<String> prereqs = request.getPrerequisites() != null
+                ? new HashSet<>(request.getPrerequisites())
+                : Collections.emptySet();
+        com.kivo.waitlist.model.CourseOffering newOffering = new com.kivo.waitlist.model.CourseOffering(
+                request.getId(),
+                request.getTitle(),
+                request.getCapacity(),
+                prereqs
+        );
+        waitlistService.registerOffering(newOffering);
+        waitlistService.switchOffering(newOffering.getId());
+        return ResponseEntity.ok(mapSnapshot(waitlistService.getSnapshot()));
+    }
+
+    @Override
+    public ResponseEntity<OfferingSnapshot> switchOffering(SwitchOfferingRequest request) {
+        waitlistService.switchOffering(request.getOfferingId());
+        return ResponseEntity.ok(mapSnapshot(waitlistService.getSnapshot()));
     }
 
     @Override
@@ -56,7 +87,10 @@ public class WaitlistApiController implements WaitlistApi {
 
     @Override
     public ResponseEntity<EnrollmentResult> enrollLearner(EnrollRequest request) {
-        com.kivo.waitlist.model.EnrollmentResult domainRes = waitlistService.enroll(request.getLearnerId());
+        com.kivo.waitlist.model.EnrollmentResult domainRes = waitlistService.enroll(
+                request.getOfferingId(),
+                request.getLearnerId()
+        );
         EnrollmentResult apiRes = new EnrollmentResult()
                 .status(EnrollmentStatus.fromValue(domainRes.getStatus().name()))
                 .message(domainRes.getMessage())
@@ -68,7 +102,10 @@ public class WaitlistApiController implements WaitlistApi {
 
     @Override
     public ResponseEntity<DropResult> dropLearner(DropRequest request) {
-        com.kivo.waitlist.model.DropResult domainRes = waitlistService.drop(request.getLearnerId());
+        com.kivo.waitlist.model.DropResult domainRes = waitlistService.drop(
+                request.getOfferingId(),
+                request.getLearnerId()
+        );
         DropResult apiRes = new DropResult()
                 .status(DropStatus.fromValue(domainRes.getStatus().name()))
                 .message(domainRes.getMessage())
@@ -94,7 +131,8 @@ public class WaitlistApiController implements WaitlistApi {
                 .enrolledCount(domain.getEnrolledCount())
                 .availableSeats(domain.getAvailableSeats())
                 .enrolledLearners(domain.getEnrolledLearners())
-                .waitlist(domain.getWaitlist());
+                .waitlist(domain.getWaitlist())
+                .prerequisites(new ArrayList<>(domain.getPrerequisites()));
     }
 
     private Learner mapLearner(com.kivo.waitlist.model.Learner domain) {
