@@ -141,18 +141,21 @@ Use this guide to test each requirement, observe expected UI/log transitions, an
 ---
 
 ### Option B: Step-by-Step Manual Actions
-1. Enroll **Alice** and **Bob** to fill capacity (`2/2`).
-2. Under **"Test Personas"**, locate **Frank Wright (frank)** (has 0 prerequisites). Click the orange button **"+ Waitlist (Pending)"** on Frank's row.
+1. Click **"↺ Reset Course State"** at the top (ensures all learners are at default baseline: Frank has 0 prerequisites).
+2. Enroll **Alice** and **Bob** to fill capacity (`2/2`).
+3. Under **"Test Personas"**, locate **Frank Wright (frank)**. Notice his badge says `⚠ Missing: CS101`.
+   - **IMPORTANT**: Do **NOT** click `+ Prereqs`! (Leave Frank with 0 prerequisites so he is ineligible).
+   - Click the orange button: **`+ Waitlist (Pending)`**.
    - *Observation*: Frank joins the waitlist at **FIFO #1** with badge: `⚠ Missing: CS101 (Skip & Retain)`.
-3. Under **"Test Personas"**, click **"Enroll"** on **Eve Johnson (eve)** (has `CS101`).
+4. Under **"Test Personas"**, click **"Enroll"** on **Eve Johnson (eve)** (has `CS101`).
    - *Observation*: Eve joins the waitlist at **FIFO #2** with badge: `✓ Eligible for promotion`.
-4. In the **Enrolled Learners** card, click the red **"Drop"** button next to **Alice Chen (alice)**.
+5. In the **Enrolled Learners** card, click the red **"Drop"** button next to **Alice Chen (alice)**.
 
-### Expected Result
-- **Atomic Promotion**: Eve is promoted directly to the open seat!
-- **Skip & Retain Invariant**: Frank is **skipped** because he lacks `CS101`, but **retained** at **FIFO #1**!
-- **Enrolled Roster**: Bob (Seat #1) and Eve (Seat #2).
-- **FIFO Waitlist**: Frank remains alone at **FIFO #1** (`⚠ Missing: CS101 (Skip & Retain)`).
+### Expected Result & Policy Contrast
+- **Why Eve is Promoted**: Eve satisfies the prerequisite `CS101` and is the earliest eligible learner in line.
+- **Why Frank is Skipped & Retained**: Frank lacks `CS101`. If Frank had `CS101`, promoting him would be standard FIFO (Scenario 5). But because he is currently ineligible, the Skip-and-Retain policy skips him, **retains Frank at FIFO #1** for future seat openings once he completes `CS101`, and promotes Eve!
+- **Enrolled Roster**: Shows **Bob** (Seat #1) and **Eve** (Seat #2).
+- **FIFO Waitlist**: Shows **Frank** alone at **FIFO #1** (`⚠ Missing: CS101 (Skip & Retain)`).
 - **Audit Log**:
   ```
   [DROPPED_AND_PROMOTED] Learner 'alice' dropped. Seat filled by waitlisted learner 'eve'.
