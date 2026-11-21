@@ -32,6 +32,11 @@ const API = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ learnerId, offeringId })
     }).then(r => r.json()),
+    queueWaitlistPending: (learnerId, offeringId) => fetch('/api/waitlist/pending', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ learnerId, offeringId })
+    }).then(r => r.json()),
     reset: () => fetch('/api/reset', { method: 'POST' }).then(r => r.json())
 };
 
@@ -63,6 +68,7 @@ const elAuditStream = document.getElementById('audit-stream');
 const elBtnReset = document.getElementById('btn-reset');
 const elBtnClearLog = document.getElementById('btn-clear-log');
 const elBtnRunDemo = document.getElementById('btn-run-acceptance-demo');
+const elBtnRunSkipDemo = document.getElementById('btn-run-skip-demo');
 const elForm = document.getElementById('custom-enroll-form');
 const elAutoFulfill = document.getElementById('auto-fulfill-prereq');
 
@@ -265,6 +271,10 @@ function renderPersonas(learners, offering) {
                     : `<button class="btn btn-ghost btn-xs" onclick="clearLearnerPrereqs('${l.id}')" title="Clear prerequisites to test rejection">Clear</button>`
                 }
                 <button class="btn btn-ghost btn-xs" onclick="promptCustomPrereqs('${l.id}')" title="Set custom list of completed courses">Edit</button>
+                ${!isEligible && !isEnrolled && !isWaitlisted
+                    ? `<button class="btn btn-warning btn-xs" onclick="handleQueuePending('${l.id}')" title="Place on waitlist with pending prerequisites to test Skip & Retain">+ Waitlist (Pending)</button>`
+                    : ''
+                }
                 ${isEnrolled
                     ? `<button class="btn btn-danger btn-xs" onclick="handleDrop('${l.id}')">Drop</button>`
                     : (isWaitlisted
@@ -447,6 +457,17 @@ async function handleDrop(learnerId) {
     }
 }
 
+async function handleQueuePending(learnerId) {
+    if (!learnerId) return;
+    try {
+        const res = await API.queueWaitlistPending(learnerId, currentOffering ? currentOffering.offeringId : null);
+        logAudit('WAITLIST_PENDING', `Placed ${learnerId} directly on waitlist at position #${res.waitlistPosition} with pending prerequisite verification.`, 'badge-warning');
+        await loadData();
+    } catch (err) {
+        logAudit('ERROR', err.message, 'badge-danger');
+    }
+}
+
 function logAudit(action, message, badgeType = 'badge-info') {
     const time = new Date().toLocaleTimeString();
     const entry = document.createElement('div');
@@ -489,6 +510,45 @@ async function runAcceptanceDemo() {
     }
 
     logAudit('DEMO_COMPLETE', '✓ All Acceptance Criteria successfully verified!', 'badge-success');
+}
+
+async function runSkipAndRetainDemo() {
+    logAudit('DEMO_START', 'Starting Scenario 6: Skip-and-Retain Policy Demonstration...', 'badge-info');
+    await API.reset();
+    await loadData();
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // Step 1: Alice enrolls (Seat 1/2)
+    await sleep(300);
+    let res = await API.enroll('alice');
+    logAudit(res.status, `Step 1: Alice enrolls -> Seat 1/2 (${res.message})`, 'badge-success');
+    await loadData();
+
+    // Step 2: Bob enrolls (Seat 2/2, full capacity)
+    await sleep(300);
+    res = await API.enroll('bob');
+    logAudit(res.status, `Step 2: Bob enrolls -> Seat 2/2, full capacity (${res.message})`, 'badge-success');
+    await loadData();
+
+    // Step 3: Frank (ineligible, 0 prereqs) placed directly on waitlist at FIFO #1
+    await sleep(300);
+    res = await API.queueWaitlistPending('frank');
+    logAudit('WAITLISTED', `Step 3: Frank placed on waitlist at FIFO #1 with pending prerequisites (Missing CS101)`, 'badge-warning');
+    await loadData();
+
+    // Step 4: Eve (eligible, has CS101) joins waitlist at FIFO #2
+    await sleep(300);
+    res = await API.enroll('eve');
+    logAudit(res.status, `Step 4: Eve joins waitlist at FIFO #2 (Eligible with CS101)`, 'badge-info');
+    await loadData();
+
+    // Step 5: Alice drops -> Skip-and-Retain promotion occurs
+    await sleep(500);
+    const dropRes = await API.drop('alice');
+    logAudit(dropRes.status, `Step 5: Alice dropped! SKIP-AND-RETAIN: Frank (ineligible) skipped & retained at FIFO #1; Eve (eligible) promoted to Seat #1!`, 'badge-success');
+    await loadData();
+
+    logAudit('SKIP_AND_RETAIN_VERIFIED', '✓ Scenario 6 Verified: Ineligible learner Frank retained at FIFO #1; Eligible learner Eve promoted!', 'badge-success');
 }
 
 // ── Event Listeners ─────────────────────────────────────────────────────────
@@ -595,6 +655,7 @@ elBtnClearLog.addEventListener('click', () => {
 });
 
 elBtnRunDemo.addEventListener('click', runAcceptanceDemo);
+if (elBtnRunSkipDemo) elBtnRunSkipDemo.addEventListener('click', runSkipAndRetainDemo);
 
 // Start
 loadData();

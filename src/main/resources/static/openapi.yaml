@@ -208,6 +208,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/OfferingSnapshot'
 
+  /api/waitlist/pending:
+    post:
+      tags:
+        - Waitlist
+      summary: Queue Learner with Pending Prerequisite
+      description: |
+        Places a learner directly onto the FIFO waitlist with pending prerequisite verification.
+        Used to test and demonstrate the Skip-and-Retain promotion policy.
+      operationId: queueWaitlistPending
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollRequest'
+      responses:
+        '200':
+          description: Waitlist placement outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentResult'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     OfferingSnapshot:

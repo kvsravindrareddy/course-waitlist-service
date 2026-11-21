@@ -123,6 +123,21 @@ public class WaitlistApiController implements WaitlistApi {
         return ResponseEntity.ok(mapSnapshot(waitlistService.getSnapshot()));
     }
 
+    @Override
+    public ResponseEntity<EnrollmentResult> queueWaitlistPending(EnrollRequest request) {
+        com.kivo.waitlist.model.EnrollmentResult domainRes = waitlistService.queueWaitlistPending(
+                request.getOfferingId(),
+                request.getLearnerId()
+        );
+        EnrollmentResult apiRes = new EnrollmentResult()
+                .status(EnrollmentStatus.fromValue(domainRes.getStatus().name()))
+                .message(domainRes.getMessage())
+                .waitlistPosition(domainRes.getWaitlistPosition())
+                .offeringId(domainRes.getOfferingId())
+                .learnerId(domainRes.getLearnerId());
+        return ResponseEntity.ok(apiRes);
+    }
+
     private OfferingSnapshot mapSnapshot(com.kivo.waitlist.model.OfferingSnapshot domain) {
         return new OfferingSnapshot()
                 .offeringId(domain.getOfferingId())

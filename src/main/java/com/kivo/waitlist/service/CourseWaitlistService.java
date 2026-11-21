@@ -272,6 +272,69 @@ public class CourseWaitlistService {
         }
     }
 
+    /**
+     * Queues a learner directly onto the waitlist with pending prerequisite verification
+     * (used to test and verify the Skip-and-Retain promotion policy without synthetic reflection).
+     */
+    public EnrollmentResult queueWaitlistPending(String learnerId) {
+        return queueWaitlistPending(null, learnerId);
+    }
+
+    public EnrollmentResult queueWaitlistPending(String offeringId, String learnerId) {
+        if (learnerId == null || learnerId.trim().isEmpty()) {
+            return EnrollmentResult.invalidRequest(
+                    offering != null ? offering.getId() : null,
+                    null,
+                    "Learner ID must be a non-empty string."
+            );
+        }
+
+        String cleanId = learnerId.trim();
+
+        lock.lock();
+        try {
+            if (offeringId != null && !offeringId.trim().isEmpty()) {
+                String cleanOfferingId = offeringId.trim();
+                if (!catalog.containsKey(cleanOfferingId)) {
+                    return EnrollmentResult.invalidRequest(
+                            cleanOfferingId,
+                            cleanId,
+                            "Course offering '" + cleanOfferingId + "' not found in catalog."
+                    );
+                }
+                if (!cleanOfferingId.equals(offering.getId())) {
+                    switchOffering(cleanOfferingId);
+                }
+            }
+
+            Learner learner = learners.get(cleanId);
+            if (learner == null) {
+                return EnrollmentResult.invalidRequest(
+                        offering.getId(),
+                        cleanId,
+                        "Learner '" + cleanId + "' is not registered in the system."
+                );
+            }
+
+            if (enrolled.contains(cleanId)) {
+                return EnrollmentResult.alreadyEnrolled(offering.getId(), cleanId, offering.getTitle());
+            }
+
+            if (waitlist.contains(cleanId)) {
+                int position = waitlist.indexOf(cleanId) + 1;
+                return EnrollmentResult.alreadyWaitlisted(offering.getId(), cleanId, position);
+            }
+
+            waitlist.add(cleanId);
+            syncActiveStateToCatalog();
+            int position = waitlist.size();
+            return EnrollmentResult.waitlisted(offering.getId(), cleanId, offering.getCapacity(), position);
+
+        } finally {
+            lock.unlock();
+        }
+    }
+
     // ── Core Drop Method ──────────────────────────────────────────────────────
 
     public DropResult drop(String learnerId) {

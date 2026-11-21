@@ -124,25 +124,40 @@ Use this guide to test each requirement, observe expected UI/log transitions, an
 ## Scenario 6: "Skip-and-Retain" Promotion Policy
 
 - **Acceptance Criterion**: AC 4 (Ineligible waitlisted learner is skipped for promotion but retained in queue; next eligible learner is promoted).
-- **Description**: Demonstrates that if an ineligible student is at the head of the waitlist when a seat opens, the system skips them to promote the next qualified learner, but preserves the skipped student's queue seniority.
-- **Initial State**: Click **"↺ Reset Course State"** to start with a fresh slate.
+- **Description**: Demonstrates that if an ineligible student is at the head of the waitlist when a seat opens, the system skips them to promote the next qualified applicant, while preserving the skipped student's queue seniority.
+- **Initial State**: Click **"↺ Reset Course State"** to start fresh.
 
-### Steps
+### Option A: 1-Click Interactive Demo
+1. In the right-hand panel, click the orange button:
+   ```
+   ▶ Demo Scenario 6: Skip & Retain Policy
+   ```
+2. The UI automatically runs the setup and displays:
+   - Alice & Bob enrolled (`2/2`).
+   - Frank placed on waitlist at FIFO #1 with pending prerequisites (`Missing CS101`).
+   - Eve joins waitlist at FIFO #2 (`Eligible with CS101`).
+   - Alice drops: Frank is **skipped & retained** at FIFO #1; Eve is **promoted** to Seat #1!
+
+---
+
+### Option B: Step-by-Step Manual Actions
 1. Enroll **Alice** and **Bob** to fill capacity (`2/2`).
-2. In the **"Test Personas"** card, find **Frank Wright (frank)** (has 0 prerequisites). Click **"+ Prereqs"** on Frank, then click **"Enroll"** so Frank joins the waitlist at position #1.
-3. Now click **"Clear"** on Frank's row under Test Personas to strip his prerequisites (simulating a student whose prerequisite grade is revoked or pending review). Notice his badge updates to `⚠ Missing: CS101 (Skip & Retain)`.
-4. Enroll **Eve** (has `CS101`). Eve joins the waitlist at position #2 behind Frank.
-5. In the **Enrolled Learners** card, click **"Drop"** on **Alice**.
+2. Under **"Test Personas"**, locate **Frank Wright (frank)** (has 0 prerequisites). Click the orange button **"+ Waitlist (Pending)"** on Frank's row.
+   - *Observation*: Frank joins the waitlist at **FIFO #1** with badge: `⚠ Missing: CS101 (Skip & Retain)`.
+3. Under **"Test Personas"**, click **"Enroll"** on **Eve Johnson (eve)** (has `CS101`).
+   - *Observation*: Eve joins the waitlist at **FIFO #2** with badge: `✓ Eligible for promotion`.
+4. In the **Enrolled Learners** card, click the red **"Drop"** button next to **Alice Chen (alice)**.
 
 ### Expected Result
-- **Promotion**: Eve is promoted directly to the open seat!
-- **Skip & Retain**: Frank is **skipped** because he lacks `CS101`, but **retained** at **FIFO #1**!
+- **Atomic Promotion**: Eve is promoted directly to the open seat!
+- **Skip & Retain Invariant**: Frank is **skipped** because he lacks `CS101`, but **retained** at **FIFO #1**!
+- **Enrolled Roster**: Bob (Seat #1) and Eve (Seat #2).
+- **FIFO Waitlist**: Frank remains alone at **FIFO #1** (`⚠ Missing: CS101 (Skip & Retain)`).
 - **Audit Log**:
   ```
   [DROPPED_AND_PROMOTED] Learner 'alice' dropped. Seat filled by waitlisted learner 'eve'.
   ```
-- **Waitlist Card**: Frank remains in the waitlist at **FIFO #1** with badge `⚠ Missing: CS101 (Skip & Retain)`.
-- 📸 **Screenshot 6**: Capture the waitlist showing Frank retained at FIFO #1 despite Alice dropping and Eve being promoted.
+- 📸 **Screenshot 6**: Capture the Enrolled Roster showing Eve promoted and the FIFO Waitlist showing Frank retained at position #1.
 
 ---
 
