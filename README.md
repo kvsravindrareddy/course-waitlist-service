@@ -2,7 +2,7 @@
 
 A high-reliability, thread-safe service slice implementing **course enrollment, dropping, and FIFO waitlist promotion** for a single course offering.
 
-Built with **Java 25**, **Spring Boot 3.4.5**, **Java Virtual Threads (Project Loom)**, **OpenAPI 3.0 Contract-First Code Generation**, and **Cucumber-Style BDD Verification**.
+Built with **Java 25**, **Spring Boot 4.1.2**, **Java Virtual Threads (Project Loom)**, **OpenAPI 3.0 Contract-First Code Generation**, and **Cucumber-Style BDD Verification**.
 
 ---
 
@@ -24,6 +24,7 @@ cd /Users/veera/work/code/interview/charles
 ./mvnw spring-boot:run
 ```
 - **Interactive UI Dashboard**: [http://localhost:8080](http://localhost:8080)
+- **Architecture & Sequence Flow Visualizer**: [http://localhost:8080/architecture.html](http://localhost:8080/architecture.html) (or open local [architecture.html](file:///Users/veera/work/code/interview/charles/architecture.html))
 - **OpenAPI 3.0 Specification**: [http://localhost:8080/openapi.yaml](http://localhost:8080/openapi.yaml) or [openapi.yaml](file:///Users/veera/work/code/interview/charles/openapi.yaml)
 - **Swagger UI Interactive API Docs**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 
@@ -54,9 +55,10 @@ cd /Users/veera/work/code/interview/charles
 
 ```
 /Users/veera/work/code/interview/charles/
-├── pom.xml                                      # Maven POM: Java 25, Spring Boot 3.4.5, OpenAPI plugin
+├── pom.xml                                      # Maven POM: Java 25, Spring Boot 4.1.2, OpenAPI plugin
 ├── openapi.yaml                                 # OpenAPI 3.0.3 Contract Specification
-├── DESIGN_SPEC.md                               # Comprehensive Architecture & Invariant Specification
+├── architecture.html                            # Interactive Architecture Blueprint & Sequence Flow Visualizer
+├── DESIGN_SPEC.md                               # Comprehensive Architecture, Sequence Diagrams & Invariants
 ├── BDD_SPEC.md                                  # BDD Feature Specification & Traceability Matrix
 ├── AI_USE_RECORD.md                             # AI Prompt Record, Evaluation, and Verification Audit
 ├── LIMITATIONS_AND_RISKS.md                     # Production Follow-up Risks & In-Memory Boundaries
@@ -64,9 +66,10 @@ cd /Users/veera/work/code/interview/charles
 ├── src/
 │   ├── main/
 │   │   ├── java/com/kivo/waitlist/
-│   │   │   ├── CourseWaitlistApplication.java   # Spring Boot 3.4.5 Entrypoint
+│   │   │   ├── CourseWaitlistApplication.java   # Spring Boot 4.1.2 Entrypoint
 │   │   │   ├── controller/
-│   │   │   │   └── WaitlistApiController.java   # Implements OpenAPI-generated WaitlistApi
+│   │   │   │   ├── WaitlistApiController.java   # Implements OpenAPI-generated WaitlistApi
+│   │   │   │   └── GlobalExceptionHandler.java  # RFC 7807 ProblemDetail error handler
 │   │   │   ├── service/
 │   │   │   │   └── CourseWaitlistService.java   # Thread-safe core domain service
 │   │   │   └── model/
@@ -79,6 +82,7 @@ cd /Users/veera/work/code/interview/charles
 │   │       ├── application.yml                  # Config (Virtual Threads enabled, CS201 defaults)
 │   │       └── static/
 │   │           ├── index.html                   # Interactive Single-Page Application (SPA)
+│   │           ├── architecture.html            # Visual Architecture Blueprint & Flow Diagrams
 │   │           ├── app.js                       # Real-time state management & API client
 │   │           ├── style.css                    # Responsive modern dashboard styles
 │   │           └── openapi.yaml                 # Static OpenAPI contract

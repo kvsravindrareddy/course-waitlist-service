@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture & Sequence Flows — Course Waitlist Service</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --accent: #818cf8;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.6;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .title-area h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .title-area p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .badge-java { background: #3b82f620; color: #60a5fa; border: 1px solid #3b82f640; }
+    .badge-spring { background: #22c55e20; color: #4ade80; border: 1px solid #22c55e40; }
+    .badge-loom { background: #a855f720; color: #c084fc; border: 1px solid #a855f740; }
+    .badge-openapi { background: #eab30820; color: #facc15; border: 1px solid #eab30840; }
+
+    .nav-links {
+      display: flex;
+      gap: 12px;
+    }
+    .nav-btn {
+      background: var(--card-bg);
+      color: var(--primary);
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      background: var(--primary);
+      color: #0f172a;
+      border-color: var(--primary);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+    }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card h2 {
+      font-size: 1.3rem;
+      margin-bottom: 12px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card p {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-size: 0.95rem;
+    }
+
+    /* Architecture Grid */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .arch-box {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .arch-box h3 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+    .arch-box ul {
+      list-style-type: disc;
+      padding-left: 20px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .arch-box ul li {
+      margin-bottom: 4px;
+    }
+
+    /* Diagram wrapper */
+    .diagram-container {
+      background: #090d16;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 20px;
+      overflow-x: auto;
+      margin-top: 16px;
+    }
+
+    /* Invariant Table */
+    .table-container {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    th {
+      background: #0f172a;
+      color: var(--primary);
+      font-weight: 600;
+    }
+    td code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 0.85rem;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #0f172a;
+      font-weight: bold;
+      font-size: 0.75rem;
+      margin-right: 8px;
+    }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding-top: 16px;
+      margin-top: 32px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="title-area">
+      <h1>Course Waitlist Architecture & Sequence Flows</h1>
+      <p>High-reliability, thread-safe service slice implementing FIFO waitlist promotion and Skip-and-Retain policy</p>
+      <div class="badges">
+        <span class="badge badge-spring">Spring Boot 4.1.2</span>
+        <span class="badge badge-java">Java 25</span>
+        <span class="badge badge-loom">Virtual Threads (Loom)</span>
+        <span class="badge badge-openapi">OpenAPI 3.0 Contract-First</span>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-btn">← Interactive Dashboard</a>
+      <a href="swagger-ui.html" class="nav-btn">Swagger UI</a>
+      <a href="openapi.yaml" class="nav-btn">OpenAPI Spec</a>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('arch')">Architecture Blueprint</button>
+    <button class="tab-btn" onclick="switchTab('enroll')">Enrollment Sequence</button>
+    <button class="tab-btn" onclick="switchTab('drop')">Drop & Promotion Sequence</button>
+    <button class="tab-btn" onclick="switchTab('concurrency')">Virtual Threads & Concurrency</button>
+    <button class="tab-btn" onclick="switchTab('invariants')">System Invariants Matrix</button>
+  </div>
+
+  <!-- TAB 1: Architecture Blueprint -->
+  <div id="tab-arch" class="tab-content active">
+    <div class="card">
+      <h2>System Architecture Blueprint</h2>
+      <p>Multi-tier modular architecture designed for zero capacity leakage, lock fairness, and build-time OpenAPI contract generation.</p>
+      
+      <div class="arch-grid">
+        <div class="arch-box">
+          <h3>1. Client / Presentation Tier</h3>
+          <ul>
+            <li>Single Page Dashboard (HTML5, CSS3, ES6 Fetch)</li>
+            <li>RESTful HTTP clients & SDK consumers</li>
+            <li>Automated JUnit 5 & BDD Test Runners</li>
+          </ul>
+        </div>
+        <div class="arch-box">
+          <h3>2. API Controller Tier</h3>
+          <ul>
+            <li><code>WaitlistApiController</code> implements <code>WaitlistApi</code></li>
+            <li>Generated by <code>openapi-generator-maven-plugin</code></li>
+            <li>RFC 7807 <code>ProblemDetail</code> error handling</li>
+            <li>Virtual Thread request dispatcher per connection</li>
+          </ul>
+        </div>
+        <div class="arch-box">
+          <h3>3. Core Domain Service</h3>
+          <ul>
+            <li><code>CourseWaitlistService</code> (Thread-Safe)</li>
+            <li><code>ReentrantLock(true)</code> fair queue serialization</li>
+            <li>Atomic enrollment, drop, and promotion evaluation</li>
+            <li>Skip-and-Retain waitlist tenure preservation</li>
+          </ul>
+        </div>
+        <div class="arch-box">
+          <h3>4. In-Memory Aggregate State</h3>
+          <ul>
+            <li><code>CourseOffering</code> (ID, capacity, prerequisites)</li>
+            <li><code>enrolled</code>: Bounded <code>List&lt;String&gt;</code> ($0 \le N \le \text{cap}$)</li>
+            <li><code>waitlist</code>: FIFO <code>List&lt;String&gt;</code> queue</li>
+            <li><code>learners</code>: <code>ConcurrentHashMap&lt;String, Learner&gt;</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="diagram-container">
+        <pre class="mermaid">
+flowchart TD
+    subgraph Clients["Clients & Test Harness"]
+        SPA["Browser Dashboard SPA"]
+        API_CLIENT["REST Consumers / Curl"]
+        TESTS["BDD & Virtual Thread Tests"]
+    end
+
+    subgraph SpringBoot["Spring Boot 4.1.2 Application (Java 25)"]
+        subgraph WebLayer["Transport Layer (Virtual Threads)"]
+            DISPATCHER["Virtual Thread HTTP Dispatcher"]
+            CONTROLLER["WaitlistApiController<br/>(Implements Generated WaitlistApi)"]
+            ERRORS["GlobalExceptionHandler<br/>(RFC 7807 ProblemDetail)"]
+        end
+
+        subgraph CoreDomain["Core Domain Service Layer"]
+            LOCK["ReentrantLock (Fair = true)<br/>Strict FIFO Serialization"]
+            SERVICE["CourseWaitlistService<br/>- enroll(id)<br/>- drop(id)<br/>- getSnapshot()"]
+        end
+
+        subgraph StateTier["In-Memory Domain Aggregates"]
+            ROSTER["Enrolled Learners<br/>Capacity Bounded: [0..Capacity]"]
+            WAITLIST["FIFO Waitlist Queue<br/>Strict Arrival Seniority"]
+            LEARNERS["Learner Registry<br/>ConcurrentHashMap"]
+        end
+    end
+
+    SPA --> DISPATCHER
+    API_CLIENT --> DISPATCHER
+    TESTS --> CONTROLLER
+    DISPATCHER --> CONTROLLER
+    CONTROLLER --> SERVICE
+    SERVICE --- LOCK
+    SERVICE --> ROSTER
+    SERVICE --> WAITLIST
+    SERVICE --> LEARNERS
+    CONTROLLER -.-> ERRORS
+        </pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Enrollment Sequence -->
+  <div id="tab-enroll" class="tab-content">
+    <div class="card">
+      <h2>Enrollment Workflow Sequence</h2>
+      <p>Demonstrates how direct enrollments, waitlist placements, duplicate attempts, and prerequisite rejections are evaluated under fair lock serialization.</p>
+
+      <div class="diagram-container">
+        <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Client as Learner / Client
+    participant Controller as WaitlistApiController
+    participant Service as CourseWaitlistService
+    participant Lock as ReentrantLock(true)
+    participant Roster as Enrolled Roster
+    participant Waitlist as FIFO Waitlist
+
+    Client->>Controller: POST /api/enroll { learnerId: "alice" }
+    Controller->>Service: enroll("alice")
+    Service->>Lock: lock()
+    Note over Service,Lock: Atomic Critical Section: FIFO Acquisition
+
+    alt Learner Not Registered
+        Service-->>Controller: EnrollmentResult(INVALID_REQUEST, "Not registered")
+    else Already Enrolled
+        Service-->>Controller: EnrollmentResult(ALREADY_ENROLLED, "Already enrolled")
+    else Already on Waitlist
+        Service-->>Controller: EnrollmentResult(ALREADY_WAITLISTED, "Already waitlisted")
+    else Prerequisite Missing (e.g. Needs CS101)
+        Service-->>Controller: EnrollmentResult(PREREQUISITE_NOT_MET, "Prerequisites not met")
+    else Capacity Available (enrolled.size &lt; capacity)
+        Service->>Roster: add("alice")
+        Service-->>Controller: EnrollmentResult(ENROLLED, "Enrolled successfully")
+    else Course Full (enrolled.size == capacity)
+        Service->>Waitlist: add("alice")
+        Service-->>Controller: EnrollmentResult(WAITLISTED, "Waitlist position: N")
+    end
+
+    Service->>Lock: unlock()
+    Controller-->>Client: 200 OK (EnrollmentResult JSON)
+        </pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: Drop & Promotion Sequence -->
+  <div id="tab-drop" class="tab-content">
+    <div class="card">
+      <h2>Drop & Skip-and-Retain Promotion Sequence</h2>
+      <p>Details the atomic vacancy creation and waitlist scan, ensuring ineligible candidates retain queue seniority while promoting the earliest eligible learner.</p>
+
+      <div class="diagram-container">
+        <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Client as Dropping Student
+    participant Controller as WaitlistApiController
+    participant Service as CourseWaitlistService
+    participant Lock as ReentrantLock(true)
+    participant Roster as Enrolled Roster
+    participant Waitlist as FIFO Waitlist
+
+    Client->>Controller: POST /api/drop { learnerId: "alice" }
+    Controller->>Service: drop("alice")
+    Service->>Lock: lock()
+    Note over Service,Lock: Atomic Critical Section: Vacancy & Promotion
+
+    alt Learner In Waitlist
+        Service->>Waitlist: remove("alice")
+        Service-->>Controller: DropResult(DROPPED_FROM_WAITLIST)
+    else Learner Not Enrolled
+        Service-->>Controller: DropResult(NOT_ENROLLED)
+    else Learner Enrolled (Seat Opened)
+        Service->>Roster: remove("alice")
+        Note over Service: 1 Seat Opened. Scanning Waitlist in FIFO Order...
+
+        alt Waitlist Empty
+            Service-->>Controller: DropResult(DROPPED, seatOpened=true)
+        else Waitlist Has Candidates
+            loop FIFO Queue Traversal (Index 0 to N-1)
+                Service->>Waitlist: checkPrerequisites(candidate)
+                alt Candidate Ineligible (Missing CS101)
+                    Note over Service,Waitlist: SKIP & RETAIN: Kept at current queue position!
+                else Candidate Eligible
+                    Service->>Waitlist: remove(candidate)
+                    Service->>Roster: add(candidate)
+                    Note over Service: Earliest Eligible Candidate Promoted
+                    Service-->>Controller: DropResult(DROPPED_AND_PROMOTED, candidateId)
+                end
+            end
+            opt All Waitlist Candidates Ineligible
+                Service-->>Controller: DropResult(DROPPED, seatOpened=true)
+            end
+        end
+    end
+
+    Service->>Lock: unlock()
+    Controller-->>Client: 200 OK (DropResult JSON)
+        </pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Virtual Threads & Concurrency -->
+  <div id="tab-concurrency" class="tab-content">
+    <div class="card">
+      <h2>Java 25 Virtual Threads & Concurrency Model</h2>
+      <p>Demonstrates high-throughput virtual thread contention using <code>Executors.newVirtualThreadPerTaskExecutor()</code> and fair lock serialization.</p>
+
+      <div class="diagram-container">
+        <pre class="mermaid">
+flowchart LR
+    subgraph Pool["Virtual Threads Pool (Loom)"]
+        VT1["Virtual Thread #1"]
+        VT2["Virtual Thread #2"]
+        VT3["Virtual Thread #3"]
+        VTN["Virtual Thread #100"]
+    end
+
+    BARRIER["CyclicBarrier(100)<br/>Simultaneous Trigger"]
+    
+    subgraph LockSync["Fair ReentrantLock(true)"]
+        QUEUE["JVM Fair Wait Queue<br/>FIFO Arrival Ordering"]
+        CRITICAL["Critical Section<br/>(One Virtual Thread at a Time)"]
+    end
+
+    subgraph State["Consistent In-Memory State"]
+        SNAP["0 Capacity Leaks<br/>Enrolled == 10<br/>Waitlisted == 90"]
+    end
+
+    VT1 --> BARRIER
+    VT2 --> BARRIER
+    VT3 --> BARRIER
+    VTN --> BARRIER
+    BARRIER --> QUEUE
+    QUEUE --> CRITICAL
+    CRITICAL --> STATE
+        </pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: Invariants Matrix -->
+  <div id="tab-invariants" class="tab-content">
+    <div class="card">
+      <h2>System Invariants & Mathematical Guarantees</h2>
+      <p>The service strictly enforces four core invariants under all operating conditions and race events.</p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Invariant</th>
+              <th>Formal Definition</th>
+              <th>Enforcement Mechanism</th>
+              <th>Test Verification</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. Capacity Invariant</strong></td>
+              <td><code>0 &le; |enrolled| &le; capacity</code></td>
+              <td>Checked inside fair lock before every enrollment and promotion operation.</td>
+              <td><code>CourseEnrollmentTest</code>, <code>CourseConcurrencyTest</code></td>
+            </tr>
+            <tr>
+              <td><strong>2. Mutual Exclusion</strong></td>
+              <td><code>enrolled &cap; waitlist = &empty;</code></td>
+              <td>Idempotency guards check both collections before state mutation.</td>
+              <td><code>CourseWaitlistTest</code>, <code>CourseDropsTest</code></td>
+            </tr>
+            <tr>
+              <td><strong>3. Queue Seniority</strong></td>
+              <td><code>FIFO Arrival Order</code></td>
+              <td>Appended to tail of waitlist; duplicate calls return <code>ALREADY_WAITLISTED</code> without resetting position.</td>
+              <td><code>CourseWaitlistTest</code>, BDD <code>@waitlist</code></td>
+            </tr>
+            <tr>
+              <td><strong>4. Prerequisite Invariant</strong></td>
+              <td><code>prerequisites &sube; completedCourses</code></td>
+              <td>Enforced during direct enrollment and evaluated at drop promotion time.</td>
+              <td><code>CoursePromotionTest</code>, BDD <code>@promotion</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>Course Waitlist Service • Spring Boot 4.1.2 • Java 25 Virtual Threads • OpenAPI 3.0 Contract-First Architecture</p>
+  </footer>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#090d16',
+      primaryColor: '#38bdf8',
+      primaryTextColor: '#f8fafc',
+      primaryBorderColor: '#334155',
+      lineColor: '#818cf8',
+      secondaryColor: '#1e293b',
+      tertiaryColor: '#0f172a'
+    }
+  });
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+    if (activeBtn) activeBtn.classList.add('active');
+
+    const activeContent = document.getElementById('tab-' + tabId);
+    if (activeContent) activeContent.classList.add('active');
+  }
+</script>
+</body>
+</html>
