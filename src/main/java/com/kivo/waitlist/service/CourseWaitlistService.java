@@ -425,6 +425,7 @@ public class CourseWaitlistService {
                     state.getWaitlist().clear();
                 }
             }
+            initDefaultLearners();
         } finally {
             lock.unlock();
         }
