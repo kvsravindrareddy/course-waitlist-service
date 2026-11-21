@@ -5,6 +5,11 @@
 const API = {
     getOffering: () => fetch('/api/offering').then(r => r.json()),
     getLearners: () => fetch('/api/learners').then(r => r.json()),
+    registerLearner: (learner) => fetch('/api/learners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(learner)
+    }).then(r => r.json()),
     enroll: (learnerId) => fetch('/api/enroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -39,6 +44,14 @@ const elBtnReset = document.getElementById('btn-reset');
 const elBtnClearLog = document.getElementById('btn-clear-log');
 const elBtnRunDemo = document.getElementById('btn-run-acceptance-demo');
 const elForm = document.getElementById('custom-enroll-form');
+const elAutoFulfill = document.getElementById('auto-fulfill-prereq');
+
+// New Learner Form DOM Elements
+const elNewForm = document.getElementById('new-learner-form');
+const elNewId = document.getElementById('new-learner-id');
+const elNewName = document.getElementById('new-learner-name');
+const elNewPrereq = document.getElementById('new-learner-prereq');
+const elBtnRegisterOnly = document.getElementById('btn-register-only');
 
 // ── Initial Load & Refresh ──────────────────────────────────────────────────
 
@@ -55,7 +68,7 @@ async function loadData() {
         renderWaitlist(offering.waitlist);
         renderPersonas(learners, offering);
     } catch (err) {
-        logAudit('ERROR', `Failed to load dashboard data: ${err.message}`, 'danger');
+        logAudit('ERROR', `Failed to load dashboard data: ${err.message}`, 'badge-danger');
     }
 }
 
@@ -91,7 +104,7 @@ function renderEnrolledList(enrolledIds) {
     }
 
     enrolledIds.forEach((id, idx) => {
-        const learner = learnersCache[id] || { id, name: id, completedCourses: [] };
+        const learner = learnersCache[id] || { id, name: id, completedCourses: ['CS101'] };
         const card = document.createElement('div');
         card.className = 'student-card';
         card.innerHTML = `
@@ -137,7 +150,10 @@ function renderWaitlist(waitlistIds) {
                     ${hasCS101 ? '✓ Eligible for promotion' : '⚠ Missing CS101 (Skip & Retain)'}
                 </span>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="handleDrop('${id}')">Remove</button>
+            <div style="display:flex; gap:6px;">
+                ${!hasCS101 ? `<button class="btn btn-primary btn-xs" onclick="togglePrereq('${id}', true)" title="Grant CS101 and allow promotion">+ CS101</button>` : ''}
+                <button class="btn btn-secondary btn-sm" onclick="handleDrop('${id}')">Remove</button>
+            </div>
         `;
         elWaitlistList.appendChild(card);
     });
@@ -145,51 +161,113 @@ function renderWaitlist(waitlistIds) {
 
 function renderPersonas(learners, offering) {
     elPersonaButtons.innerHTML = '';
+    const previousSelection = elLearnerSelect.value;
     elLearnerSelect.innerHTML = '<option value="">-- Choose registered learner --</option>';
 
     learners.forEach(l => {
-        // Option
-        const opt = document.createElement('option');
-        opt.value = l.id;
-        opt.textContent = `${l.name} (${l.id}) - [${(l.completedCourses || []).join(', ') || 'No prereqs'}]`;
-        elLearnerSelect.appendChild(opt);
-
-        // Persona Button
+        const hasCS101 = (l.completedCourses || []).includes('CS101');
         const isEnrolled = offering.enrolledLearners.includes(l.id);
         const isWaitlisted = offering.waitlist.includes(l.id);
+        const waitlistPos = isWaitlisted ? offering.waitlist.indexOf(l.id) + 1 : 0;
 
-        let statusText = 'Available';
-        let badgeStyle = 'color: #059669';
-        if (isEnrolled) { statusText = 'Enrolled'; badgeStyle = 'color: #4f46e5; font-weight: 700;'; }
-        if (isWaitlisted) { statusText = 'Waitlisted'; badgeStyle = 'color: #0284c7; font-weight: 700;'; }
+        // Dropdown Option
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = `${l.name} (${l.id}) — ${hasCS101 ? '✓ CS101 Eligible' : '⚠ Missing CS101'}`;
+        elLearnerSelect.appendChild(opt);
 
-        const btn = document.createElement('button');
-        btn.className = 'persona-btn';
-        btn.type = 'button';
-        btn.onclick = () => handleEnroll(l.id);
-        btn.innerHTML = `
-            <div>
-                <div>${l.name} <span style="font-size: 0.72rem; color: #64748b;">(${l.id})</span></div>
-                <div class="persona-meta">Completed: [${(l.completedCourses || []).join(', ') || 'None'}]</div>
+        // Persona Row Item
+        const item = document.createElement('div');
+        item.className = 'persona-item';
+
+        let statusBadge = '<span class="seat-tag" style="background:#f1f5f9; color:#475569;">Available</span>';
+        if (isEnrolled) {
+            statusBadge = '<span class="seat-tag" style="background:#dbeafe; color:#1d4ed8;">Enrolled</span>';
+        } else if (isWaitlisted) {
+            statusBadge = `<span class="rank-tag" style="background:#fef3c7; color:#b45309;">Waitlist #${waitlistPos}</span>`;
+        }
+
+        const prereqBadge = hasCS101
+            ? '<span class="student-prereqs">✓ CS101 Satisfied</span>'
+            : '<span class="student-prereqs missing">⚠ Missing CS101</span>';
+
+        item.innerHTML = `
+            <div style="flex:1;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:700; font-size:0.86rem;">${l.name}</span>
+                    <span style="font-size:0.72rem; color:#64748b;">(${l.id})</span>
+                    ${statusBadge}
+                </div>
+                <div style="margin-top:2px;">
+                    ${prereqBadge}
+                </div>
             </div>
-            <span style="${badgeStyle}; font-size: 0.75rem;">${statusText} ›</span>
+            <div class="persona-actions">
+                ${!hasCS101
+                    ? `<button class="btn btn-secondary btn-xs" onclick="togglePrereq('${l.id}', true)" title="Grant CS101 to satisfy prerequisite">+ CS101</button>`
+                    : `<button class="btn btn-ghost btn-xs" onclick="togglePrereq('${l.id}', false)" title="Revoke CS101 to test prerequisite failure">- CS101</button>`
+                }
+                ${isEnrolled
+                    ? `<button class="btn btn-danger btn-xs" onclick="handleDrop('${l.id}')">Drop</button>`
+                    : (isWaitlisted
+                        ? `<button class="btn btn-secondary btn-xs" onclick="handleDrop('${l.id}')">Leave</button>`
+                        : `<button class="btn btn-primary btn-xs" onclick="handleEnroll('${l.id}')">Enroll</button>`
+                    )
+                }
+            </div>
         `;
-        elPersonaButtons.appendChild(btn);
+        elPersonaButtons.appendChild(item);
     });
+
+    if (previousSelection) {
+        elLearnerSelect.value = previousSelection;
+    }
 }
 
-// ── Actions ─────────────────────────────────────────────────────────────────
+// ── Prerequisite Management ────────────────────────────────────────────────
+
+async function togglePrereq(learnerId, grant) {
+    const learner = learnersCache[learnerId];
+    if (!learner) return;
+
+    try {
+        const completedCourses = grant ? ['CS101'] : [];
+        await API.registerLearner({
+            id: learner.id,
+            name: learner.name,
+            completedCourses
+        });
+        logAudit('PREREQ_UPDATE', `${grant ? '✓ Granted' : '✗ Revoked'} prerequisite CS101 for ${learner.name} (${learner.id}).`, 'badge-info');
+        await loadData();
+    } catch (err) {
+        logAudit('ERROR', `Failed to update prerequisite: ${err.message}`, 'badge-danger');
+    }
+}
+
+async function grantAndEnroll(learnerId) {
+    await togglePrereq(learnerId, true);
+    await handleEnroll(learnerId);
+}
+
+// ── Enrollment & Drop Actions ───────────────────────────────────────────────
 
 async function handleEnroll(learnerId) {
     if (!learnerId) return;
     try {
         const res = await API.enroll(learnerId);
         let badgeClass = 'badge-success';
-        if (res.status === 'PREREQUISITE_NOT_MET') badgeClass = 'badge-danger';
-        else if (res.status === 'WAITLISTED') badgeClass = 'badge-info';
-        else if (res.status.startsWith('ALREADY_')) badgeClass = 'badge-warning';
+        let msg = res.message;
 
-        logAudit(res.status, res.message, badgeClass);
+        if (res.status === 'PREREQUISITE_NOT_MET') {
+            badgeClass = 'badge-danger';
+            msg = `${res.message} <button class="btn btn-primary btn-xs" style="margin-left:8px;" onclick="grantAndEnroll('${learnerId}')">+ Grant CS101 & Retry</button>`;
+        } else if (res.status === 'WAITLISTED') {
+            badgeClass = 'badge-info';
+        } else if (res.status && res.status.startsWith('ALREADY_')) {
+            badgeClass = 'badge-warning';
+        }
+
+        logAudit(res.status, msg, badgeClass);
         await loadData();
     } catch (err) {
         logAudit('ERROR', err.message, 'badge-danger');
@@ -257,12 +335,83 @@ async function runAcceptanceDemo() {
 
 // ── Event Listeners ─────────────────────────────────────────────────────────
 
-elForm.addEventListener('submit', (e) => {
+// 1. Enroll from List Form
+elForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = elLearnerSelect.value;
-    if (id) handleEnroll(id);
+    if (!id) {
+        alert('Please select a learner from the list.');
+        return;
+    }
+
+    const autoFulfill = elAutoFulfill && elAutoFulfill.checked;
+    const learner = learnersCache[id];
+
+    if (autoFulfill && learner && !(learner.completedCourses || []).includes('CS101')) {
+        logAudit('PREREQ_GRANT', `Auto-granting prerequisite CS101 to ${learner.name} (${learner.id}) before enrollment...`, 'badge-info');
+        await API.registerLearner({
+            id: learner.id,
+            name: learner.name,
+            completedCourses: ['CS101']
+        });
+    }
+
+    await handleEnroll(id);
 });
 
+// 2. Register & Enroll New Learner Form
+elNewForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = elNewId.value.trim().toLowerCase();
+    const name = elNewName.value.trim();
+    const hasPrereq = elNewPrereq.checked;
+
+    if (!id || !name) {
+        alert('Please provide both Learner ID and Full Name.');
+        return;
+    }
+
+    logAudit('REGISTER', `Registering new learner: ${name} (${id}) with completed prerequisites: [${hasPrereq ? 'CS101' : 'None'}]...`, 'badge-info');
+    await API.registerLearner({
+        id,
+        name,
+        completedCourses: hasPrereq ? ['CS101'] : []
+    });
+
+    logAudit('ENROLL', `Submitting enrollment request for new learner ${name} (${id})...`, 'badge-info');
+    await handleEnroll(id);
+
+    elNewId.value = '';
+    elNewName.value = '';
+    elNewPrereq.checked = true;
+});
+
+// 3. Register Only Button
+elBtnRegisterOnly.addEventListener('click', async () => {
+    const id = elNewId.value.trim().toLowerCase();
+    const name = elNewName.value.trim();
+    const hasPrereq = elNewPrereq.checked;
+
+    if (!id || !name) {
+        alert('Please provide both Learner ID and Full Name.');
+        return;
+    }
+
+    await API.registerLearner({
+        id,
+        name,
+        completedCourses: hasPrereq ? ['CS101'] : []
+    });
+    logAudit('REGISTER', `✓ Successfully registered new learner: ${name} (${id}). Available in list.`, 'badge-success');
+    await loadData();
+    elLearnerSelect.value = id;
+
+    elNewId.value = '';
+    elNewName.value = '';
+    elNewPrereq.checked = true;
+});
+
+// 4. Header Reset & Clear Log
 elBtnReset.addEventListener('click', async () => {
     await API.reset();
     logAudit('RESET', 'Course offering and waitlist state reset to initial baseline.', 'badge-warning');

@@ -80,25 +80,53 @@
             <!-- 3. Actions & Personas Column -->
             <div class="dashboard-col">
                 <div class="col-header">
-                    <h3>Quick Enrollment</h3>
-                    <span class="col-sub">Simulate student actions</span>
+                    <h3>Enrollment Actions</h3>
+                    <span class="col-sub">Enroll from list or add new</span>
                 </div>
 
+                <!-- 1. Enroll from List Card -->
                 <div class="card action-card">
-                    <h4>Test Personas</h4>
-                    <div class="persona-buttons" id="persona-buttons">
-                        <!-- Buttons populated dynamically -->
-                    </div>
-
-                    <hr class="divider">
-
-                    <h4>Custom Enrollment</h4>
+                    <h4>Enroll from List</h4>
                     <form id="custom-enroll-form" class="custom-form">
                         <select id="learner-select" class="form-input">
                             <option value="">-- Choose registered learner --</option>
                         </select>
-                        <button type="submit" class="btn btn-primary btn-block">Enroll in Course</button>
+                        <label class="checkbox-row" title="If learner lacks CS101, automatically satisfies prerequisite before submitting enrollment">
+                            <input type="checkbox" id="auto-fulfill-prereq" checked>
+                            <span>Auto-fulfill prerequisite (CS101) if missing</span>
+                        </label>
+                        <button type="submit" class="btn btn-primary btn-block">Enroll Selected Learner</button>
                     </form>
+                </div>
+
+                <!-- 2. Register & Enroll New Learner Card -->
+                <div class="card action-card">
+                    <h4>Register & Enroll New Learner</h4>
+                    <form id="new-learner-form" class="custom-form">
+                        <div class="form-row-2">
+                            <input type="text" id="new-learner-id" class="form-input" placeholder="ID (e.g. grace)" required>
+                            <input type="text" id="new-learner-name" class="form-input" placeholder="Full Name (e.g. Grace Hopper)" required>
+                        </div>
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="new-learner-prereq" checked>
+                            <span>Has completed prerequisite (CS101)</span>
+                        </label>
+                        <div style="display:flex; gap:8px;">
+                            <button type="submit" class="btn btn-primary" style="flex:1;">Enroll New</button>
+                            <button type="button" id="btn-register-only" class="btn btn-secondary" style="flex:1;">Register Only</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 3. Test Personas & Quick Actions Card -->
+                <div class="card action-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h4 style="margin-bottom:0;">Test Personas</h4>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">Quick actions</span>
+                    </div>
+                    <div class="persona-buttons" id="persona-buttons">
+                        <!-- Buttons populated dynamically with Enroll & Prereq toggle -->
+                    </div>
 
                     <hr class="divider">
 

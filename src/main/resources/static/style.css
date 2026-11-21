@@ -383,6 +383,61 @@ body {
     gap: 8px;
 }
 
+.persona-item {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+}
+
+.persona-item:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.persona-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+    margin: 2px 0;
+}
+
+.checkbox-row input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.btn-xs {
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 6px;
+}
+
 .persona-btn {
     display: flex;
     justify-content: space-between;
