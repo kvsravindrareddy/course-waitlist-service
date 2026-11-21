@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Course Waitlist Management — Fullstack Service</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2.0.2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -125,7 +125,10 @@
                             <input type="checkbox" id="auto-fulfill-prereq">
                             <span id="auto-fulfill-label">Auto-fulfill course prerequisites if missing (off by default)</span>
                         </label>
-                        <button type="submit" class="btn btn-primary btn-block">Enroll Selected Learner</button>
+                        <div style="display:flex; gap:8px; margin-top:4px;">
+                            <button type="submit" class="btn btn-primary" style="flex:1;">Enroll Selected</button>
+                            <button type="button" id="btn-queue-waitlist-pending" class="btn btn-warning" style="flex:1;" title="Place selected learner directly onto waitlist with pending prerequisites to test Skip-and-Retain">+ Waitlist (Pending)</button>
+                        </div>
                     </form>
                 </div>
 
@@ -195,6 +198,6 @@
         </section>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2.0.2"></script>
 </body>
 </html>

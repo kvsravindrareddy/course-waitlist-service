@@ -606,6 +606,15 @@ body {
 }
 .btn-accent:hover { background: #0369a1; }
 
+.btn-warning {
+    background: #f59e0b;
+    color: #ffffff;
+    border: 1px solid #d97706;
+}
+.btn-warning:hover {
+    background: #d97706;
+}
+
 .btn-danger {
     background: #fee2e2;
     color: #b91c1c;

@@ -143,10 +143,11 @@ Use this guide to test each requirement, observe expected UI/log transitions, an
 ### Option B: Step-by-Step Manual Actions
 1. Click **"↺ Reset Course State"** at the top (ensures all learners are at default baseline: Frank has 0 prerequisites).
 2. Enroll **Alice** and **Bob** to fill capacity (`2/2`).
-3. Under **"Test Personas"**, locate **Frank Wright (frank)**. Notice his badge says `⚠ Missing: CS101`.
-   - **IMPORTANT**: Do **NOT** click `+ Prereqs`! (Leave Frank with 0 prerequisites so he is ineligible).
-   - Click the orange button: **`+ Waitlist (Pending)`**.
-   - *Observation*: Frank joins the waitlist at **FIFO #1** with badge: `⚠ Missing: CS101 (Skip & Retain)`.
+3. Place **Frank Wright (frank)** on the waitlist with pending prerequisites:
+   - In the **"Enroll from List"** card, select **Frank Wright (frank)** from the dropdown.
+   - Click the bright orange button: **`+ Waitlist (Pending)`** (right next to "Enroll Selected").
+   - *(Alternative)*: Click the orange **`+ Waitlist (Pending)`** button on Frank's row under **Test Personas**.
+   - *Observation*: Frank joins the waitlist at **FIFO #1** with badge: `⚠ Missing: CS101 (Skip & Retain)`. (Frank maintains 0 prerequisites).
 4. Under **"Test Personas"**, click **"Enroll"** on **Eve Johnson (eve)** (has `CS101`).
    - *Observation*: Eve joins the waitlist at **FIFO #2** with badge: `✓ Eligible for promotion`.
 5. In the **Enrolled Learners** card, click the red **"Drop"** button next to **Alice Chen (alice)**.

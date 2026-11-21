@@ -71,6 +71,7 @@ const elBtnRunDemo = document.getElementById('btn-run-acceptance-demo');
 const elBtnRunSkipDemo = document.getElementById('btn-run-skip-demo');
 const elForm = document.getElementById('custom-enroll-form');
 const elAutoFulfill = document.getElementById('auto-fulfill-prereq');
+const elBtnQueuePending = document.getElementById('btn-queue-waitlist-pending');
 
 // New Learner Form DOM Elements
 const elNewForm = document.getElementById('new-learner-form');
@@ -588,6 +589,17 @@ elForm.addEventListener('submit', async (e) => {
 
     await handleEnroll(id);
 });
+
+if (elBtnQueuePending) {
+    elBtnQueuePending.addEventListener('click', async () => {
+        const id = elLearnerSelect.value;
+        if (!id) {
+            alert('Please select a learner from the list first (e.g. Frank or Carol).');
+            return;
+        }
+        await handleQueuePending(id);
+    });
+}
 
 // 2. Register & Enroll New Learner Form
 elNewForm.addEventListener('submit', async (e) => {
