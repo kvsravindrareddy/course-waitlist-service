@@ -38,7 +38,7 @@ Feature: Course Enrollment, Drop, and FIFO Waitlist Promotion
 | **AC 3: FIFO Promotion upon Drop** | Scenario: Dropping an enrolled learner promotes the earliest eligible waitlisted learner in FIFO order | `testDroppingEnrolledLearnerPromotesFifoWaitlist` |
 | **AC 4: Skip-and-Retain Eligibility Policy** | Scenario: Ineligible waitlisted learner is skipped for promotion but retained in queue, and next eligible learner is promoted | `testSkipAndRetainPolicyForIneligibleWaitlist` |
 | **AC 5: Empty Waitlist & Duplicate Drops** | Scenario: Dropping an enrolled learner when waitlist is empty opens an available seat<br>Scenario: Dropping a non-enrolled learner returns NOT_ENROLLED without state corruption<br>Scenario: Repeated drop of an already dropped learner does not leak capacity<br>Scenario: Dropping directly from the waitlist removes learner without opening an enrolled seat | `testDroppingWhenWaitlistIsEmptyOpensSeat`<br>`testDroppingNonEnrolledLearnerReturnsNotEnrolled`<br>`testRepeatedDropDoesNotLeakCapacity`<br>`testDroppingDirectlyFromWaitlist` |
-| **AC 6: Concurrency & Thread-Safety** | Multi-threaded barrier contention test (30 concurrent threads competing for 5 seats) | `CourseConcurrencyTest.testConcurrentEnrollmentContention` |
+| **AC 6: Concurrency & Thread-Safety** | Multi-threaded barrier contention test (30 threads) & Java 25 Virtual Threads stress test (100 virtual threads) | `CourseConcurrencyTest.testConcurrentEnrollmentContention`<br>`CourseConcurrencyTest.testVirtualThreadContention` |
 
 ---
 
@@ -166,7 +166,7 @@ The BDD test suite is implemented in Java and executes automatically with JUnit 
 
 ```bash
 cd /Users/veera/work/code/interview/charles
-./mvnw test -Dtest=CourseWaitlistBddTest,WaitlistApiBddTest
+./mvnw test -Dtest=CourseWaitlistBddTest
 ```
 
 Test reports and assertions verify that all Gherkin Given/When/Then conditions hold true across both the service layer and the REST controller.

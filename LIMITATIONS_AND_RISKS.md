@@ -5,16 +5,16 @@ This document highlights architectural limitations and production follow-up risk
 ---
 
 ## 1. Process-Local In-Memory Persistence
-- **Limitation**: The current implementation stores offering state, enrollments, and waitlists in Python memory. A process termination or container restart clears all state.
+- **Limitation**: The current implementation stores offering state, enrollments, and waitlists in JVM memory (`ArrayList`, `ConcurrentHashMap`). A process termination or container restart clears all state.
 - **Risk**: Unacceptable for production registrar systems where enrollment state must survive crashes and deployments.
-- **Follow-up Recommendation**: Map domain models to a persistent transactional store (e.g., PostgreSQL). Enforce capacity invariants at the database layer using `SELECT ... FOR UPDATE` row-level locks or transactional check constraints (`CHECK (enrolled_count <= capacity)`).
+- **Follow-up Recommendation**: Map domain models to a persistent transactional store (e.g., PostgreSQL with Spring Data JPA). Enforce capacity invariants at the database layer using `SELECT ... FOR UPDATE` row-level locks or transactional check constraints (`CHECK (enrolled_count <= capacity)`).
 
 ---
 
 ## 2. Single-Instance Concurrency vs. Distributed Scaling
-- **Limitation**: Concurrency control relies on Python's `threading.RLock`.
-- **Risk**: In a horizontally scaled environment with multiple API replicas behind a load balancer, process-local locks cannot prevent over-subscription (two instances could simultaneously enroll learners into the last remaining seat).
-- **Follow-up Recommendation**: Use distributed transactions or distributed synchronization (e.g., Redis-based locks with leases, or database row locks on the `course_offerings` row during enrollment transactions).
+- **Limitation**: Concurrency control relies on Java's process-local `java.util.concurrent.locks.ReentrantLock(true)`.
+- **Risk**: In a horizontally scaled cloud environment with multiple Spring Boot API replicas behind a load balancer, JVM-local locks cannot prevent cross-pod over-subscription (two instances could simultaneously enroll learners into the last remaining seat).
+- **Follow-up Recommendation**: Use distributed locking (e.g., Redis Redlock / ShedLock with leases) or database row locks on the `course_offerings` record during transactional enrollment.
 
 ---
 
