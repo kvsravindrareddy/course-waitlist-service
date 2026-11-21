@@ -7,7 +7,7 @@ This document defines the **Behavior-Driven Development (BDD)** specification fo
 BDD establishes a ubiquitous domain language bridging product requirements, acceptance criteria, and automated test execution. Each scenario is authored in standard **Gherkin syntax** (`Given`, `When`, `Then`, `And`) and mapped directly to executable Java BDD test cases.
 
 The source Gherkin feature file is located at:
-[src/test/resources/features/course_waitlist.feature](file:///Users/veera/work/code/interview/charles/src/test/resources/features/course_waitlist.feature)
+[src/test/resources/features/course_waitlist.feature](file:///Users/veera/work/code/interview/course-waitlist-service/src/test/resources/features/course_waitlist.feature)
 
 ---
 
@@ -165,7 +165,7 @@ And the enrolled count should remain 2
 The BDD test suite is implemented in Java and executes automatically with JUnit 5:
 
 ```bash
-cd /Users/veera/work/code/interview/charles
+cd /Users/veera/work/code/interview/course-waitlist-service
 ./mvnw test -Dtest=CourseWaitlistBddTest
 ```
 

@@ -192,7 +192,7 @@ To guarantee ACID properties and deterministic FIFO queue placement without a da
 
 ## 5. REST API & OpenAPI 3.0 Mapping
 
-The complete contract is defined in [openapi.yaml](file:///Users/veera/work/code/interview/charles/openapi.yaml).
+The complete contract is defined in [openapi.yaml](file:///Users/veera/work/code/interview/course-waitlist-service/openapi.yaml).
 
 | Method | Endpoint | Request Body | Response Body | Description |
 | :--- | :--- | :--- | :--- | :--- |

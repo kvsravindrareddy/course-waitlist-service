@@ -24,7 +24,7 @@ The AI recommended:
   - Implemented idempotent re-enrollment guards (`ALREADY_ENROLLED` and `ALREADY_WAITLISTED`) so duplicate calls never alter queue ordering.
 
 ### 4. Verification Evidence
-- Verified via [CourseEnrollmentTest.java](file:///Users/veera/work/code/interview/charles/src/test/java/com/kivo/waitlist/CourseEnrollmentTest.java) (`testDuplicateEnrollmentRejectedIdempotently`) and [CourseWaitlistTest.java](file:///Users/veera/work/code/interview/charles/src/test/java/com/kivo/waitlist/CourseWaitlistTest.java) (`testEnrolledLearnerCannotJoinWaitlist`).
+- Verified via [CourseEnrollmentTest.java](file:///Users/veera/work/code/interview/course-waitlist-service/src/test/java/com/kivo/waitlist/CourseEnrollmentTest.java) (`testDuplicateEnrollmentRejectedIdempotently`) and [CourseWaitlistTest.java](file:///Users/veera/work/code/interview/course-waitlist-service/src/test/java/com/kivo/waitlist/CourseWaitlistTest.java) (`testEnrolledLearnerCannotJoinWaitlist`).
 
 ---
 
@@ -44,7 +44,7 @@ The AI outlined two strategies:
 - **Code Realization**: Implemented `_promoteNextEligible()` in `CourseWaitlistService.java` to scan index-by-index, promoting the first candidate meeting prerequisites without altering the relative ordering of skipped candidates.
 
 ### 4. Verification Evidence
-- Verified via [CoursePromotionTest.java](file:///Users/veera/work/code/interview/charles/src/test/java/com/kivo/waitlist/CoursePromotionTest.java) (`testSkipAndRetainPolicyForIneligibleWaitlistedLearner`).
+- Verified via [CoursePromotionTest.java](file:///Users/veera/work/code/interview/course-waitlist-service/src/test/java/com/kivo/waitlist/CoursePromotionTest.java) (`testSkipAndRetainPolicyForIneligibleWaitlistedLearner`).
 
 ---
 

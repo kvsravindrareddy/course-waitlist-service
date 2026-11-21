@@ -15,7 +15,7 @@ Built with **Java 25**, **Spring Boot 4.1.2**, **Java Virtual Threads (Project L
 ### Run All Automated Tests (32 Tests)
 Runs all unit tests, virtual thread concurrency stress tests, and BDD scenario tests:
 ```bash
-cd /Users/veera/work/code/interview/charles
+cd /Users/veera/work/code/interview/course-waitlist-service
 ./mvnw test
 ```
 
@@ -24,8 +24,8 @@ cd /Users/veera/work/code/interview/charles
 ./mvnw spring-boot:run
 ```
 - **Interactive UI Dashboard**: [http://localhost:8080](http://localhost:8080)
-- **Architecture & Sequence Flow Visualizer**: [http://localhost:8080/architecture.html](http://localhost:8080/architecture.html) (or open local [architecture.html](file:///Users/veera/work/code/interview/charles/architecture.html))
-- **OpenAPI 3.0 Specification**: [http://localhost:8080/openapi.yaml](http://localhost:8080/openapi.yaml) or [openapi.yaml](file:///Users/veera/work/code/interview/charles/openapi.yaml)
+- **Architecture & Sequence Flow Visualizer**: [http://localhost:8080/architecture.html](http://localhost:8080/architecture.html) (or open local [architecture.html](file:///Users/veera/work/code/interview/course-waitlist-service/architecture.html))
+- **OpenAPI 3.0 Specification**: [http://localhost:8080/openapi.yaml](http://localhost:8080/openapi.yaml) or [openapi.yaml](file:///Users/veera/work/code/interview/course-waitlist-service/openapi.yaml)
 - **Swagger UI Interactive API Docs**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 
 ---
@@ -54,7 +54,7 @@ cd /Users/veera/work/code/interview/charles
 ## 3. Project Structure
 
 ```
-/Users/veera/work/code/interview/charles/
+/Users/veera/work/code/interview/course-waitlist-service/
 ├── pom.xml                                      # Maven POM: Java 25, Spring Boot 4.1.2, OpenAPI plugin
 ├── openapi.yaml                                 # OpenAPI 3.0.3 Contract Specification
 ├── architecture.html                            # Interactive Architecture Blueprint & Sequence Flow Visualizer
